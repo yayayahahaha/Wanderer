@@ -1,4 +1,4 @@
-import os from 'os'
+const os = require('os')
 
 /**
  * @description 根據cpu 和空閒記憶體等去計算約莫的task 數量
@@ -22,4 +22,4 @@ const taskNumberCreater = () => {
   return Math.round(taskNumber)
 }
 
-export { taskNumberCreater }
+module.exports = { taskNumberCreater }
