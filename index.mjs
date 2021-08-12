@@ -16,7 +16,6 @@
 // electron 平台的實作
 // Puppeteer 操偶師的實作必要性研究
 
-import axios from 'axios'
 import fs from 'fs'
 import os from 'os'
 import flyc from 'npm-flyc'
