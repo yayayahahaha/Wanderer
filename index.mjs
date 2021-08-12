@@ -17,7 +17,7 @@
 // Puppeteer 操偶師的實作必要性研究
 
 import fs from 'fs'
-const { TaskSystem, download } = require('npm-flyc')
+// const { TaskSystem, download } = require('npm-flyc')
 // TODO
 // SESSID 的部分可以嘗試打post api 傳遞帳密後直接取得之類的
 // 或是取得多組SESSID 後放進array 做輪詢減少單一帳號的loading 之類的
@@ -52,8 +52,17 @@ const defaultTaskSetting = function () {
   }
 }
 
+import fetch from 'node-fetch'
+import { headers } from './utils/header.js'
+
 // 故事從這裡開始
 ;(async (eachPageInterval = 60) => {
+  const result = await fetch('https://www.pixiv.net/rpc/index.php?mode=message_thread_unread_count&lang=zh_tw', {
+    headers
+  })
+  console.log(awaitresult.json())
+
+  return
   // 確認input 資料
   const inputChecked = inputChecker()
   if (!inputChecked) return
