@@ -9,7 +9,6 @@
     "dev": "node --experimental-modules index.mjs"
   },
   "dependencies": {
-    "axios": "^0.18.1",
     "npm-flyc": "^1.0.10"
   },
   "devDependencies": {}
