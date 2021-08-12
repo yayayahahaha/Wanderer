@@ -21,10 +21,7 @@ import fs from 'fs'
 import os from 'os'
 import flyc from 'npm-flyc'
 
-const {
-  TaskSystem,
-  download
-} = flyc // nodejs 的import 似乎無法直接解構?
+const { TaskSystem, download } = flyc // nodejs 的import 似乎無法直接解構?
 // TODO
 // SESSID 的部分可以嘗試打post api 傳遞帳密後直接取得之類的
 // 或是取得多組SESSID 後放進array 做輪詢減少單一帳號的loading 之類的
@@ -32,14 +29,14 @@ let currentSESSID = ''
 
 const eachPageInterval = 60
 
-const getSearchHeader = function() {
+const getSearchHeader = function () {
   if (!currentSESSID) console.log('getSearchHeader: currentSESSID 為空！')
   return {
     'accept-language': 'zh-TW,zh;q=0.9,en-US;q=0.8,en;q=0.7,ja;q=0.6,zh-CN;q=0.5',
     cookie: `PHPSESSID=${currentSESSID};`
   }
 }
-const getSinegleHeader = function(illustId) {
+const getSinegleHeader = function (illustId) {
   if (!illustId) {
     console.log('getSinegleHeader: 請務必輸入illustId')
     return {}
@@ -48,35 +45,36 @@ const getSinegleHeader = function(illustId) {
     referer: `https://www.pixiv.net/artworks/${illustId}`
   }
 }
-const getKeywordsInfoUrl = function(keyword, page = 1) {
+const getKeywordsInfoUrl = function (keyword, page = 1) {
   const url = `https://www.pixiv.net/ajax/search/artworks/${keyword}?word=${keyword}&order=date&mode=all&p=${page}&s_mode=s_tag&type=all`
   return encodeURI(url)
 }
-const taskNumberCreater = function() {
+const taskNumberCreater = function () {
   const cpus = os.cpus()
   const cpusAmount = cpus.length
-  const cpuSpec = cpus.reduce(function(cardinalNumber, cpu) {
-    let total = 0
-    for (const item in cpu.times) {
-      total += cpu.times[item]
-    }
-    return cardinalNumber + (cpu.times.idle * 100 / total)
-  }, 0) / cpusAmount
+  const cpuSpec =
+    cpus.reduce(function (cardinalNumber, cpu) {
+      let total = 0
+      for (const item in cpu.times) {
+        total += cpu.times[item]
+      }
+      return cardinalNumber + (cpu.times.idle * 100) / total
+    }, 0) / cpusAmount
 
   const memory = os.freemem() / Math.pow(1024, 3) // GB
 
-  const taskNumber = memory * cpuSpec / 10
+  const taskNumber = (memory * cpuSpec) / 10
 
   return Math.round(taskNumber)
 }
-const defaultTaskSetting = function() {
+const defaultTaskSetting = function () {
   return {
     randomDelay: 0
   }
-};
+}
 
 // 故事從這裡開始
-(async(eachPageInterval = 60) => {
+;(async (eachPageInterval = 60) => {
   // 確認input 資料
   const inputChecked = inputChecker()
   if (!inputChecked) return
@@ -112,10 +110,7 @@ const defaultTaskSetting = function() {
   const filterImagesArray = filterBookmarkCount(formatedImagesArray, likedLevel)
 
   // 分割出singleArray 和multipleArray
-  const {
-    singleArray,
-    multipleArray
-  } = separateSingleAndMultiple(filterImagesArray)
+  const { singleArray, multipleArray } = separateSingleAndMultiple(filterImagesArray)
 
   // 把task 展開: singleArray 的只會有一張、multiple 的會有多張
   const singleArray_format = fetchSingleImagesUrl(singleArray)
@@ -131,9 +126,9 @@ const defaultTaskSetting = function() {
 })(eachPageInterval)
 
 function request(config) {
-  return axios(config).then(({
-    data
-  }) => [data, null]).catch((error) => [null, error])
+  return axios(config)
+    .then(({ data }) => [data, null])
+    .catch(error => [null, error])
 }
 
 function inputChecker() {
@@ -177,6 +172,7 @@ async function firstSearch(keyword) {
   })
   if (error) {
     console.error('取得資料失敗!')
+    console.error(error)
     return false
   }
   return firstPageData.body.illustManga
@@ -193,11 +189,11 @@ async function getRestPages(keyword, totalPages) {
   const task_search = new TaskSystem(searchFuncArray, taskNumber, defaultTaskSetting())
 
   let allPagesImagesArray = await task_search.doPromise()
-  allPagesImagesArray = allPagesImagesArray.map((result) => result.data[0].body.illustManga)
+  allPagesImagesArray = allPagesImagesArray.map(result => result.data[0].body.illustManga)
   return allPagesImagesArray
 
   function _create_each_search_page(keyword, page) {
-    return function() {
+    return function () {
       return request({
         method: 'get',
         url: getKeywordsInfoUrl(keyword, page),
@@ -224,16 +220,20 @@ function getPageCache(list, keyword) {
 // 透過taskSystem 逐頁取得所有圖片的項目
 // 也在這個function 找出每個圖片的星星數目
 async function bindingBookmarkCount(allPagesImagesArray, keyword) {
-  const allPagesImagesMap = allPagesImagesArray.reduce((map, item) => Object.assign(map, {
-    [item.illustId]: item
-  }), {})
+  const allPagesImagesMap = allPagesImagesArray.reduce(
+    (map, item) =>
+      Object.assign(map, {
+        [item.illustId]: item
+      }),
+    {}
+  )
 
   // 取得cache
   const cachedMap = getPageCache(allPagesImagesArray, keyword)
-  const noCacheImages = allPagesImagesArray.filter((image) => !cachedMap[image.illustId])
+  const noCacheImages = allPagesImagesArray.filter(image => !cachedMap[image.illustId])
 
   const taskArray = []
-  noCacheImages.forEach((imageItem) => {
+  noCacheImages.forEach(imageItem => {
     taskArray.push(_each_image_page(imageItem.illustId))
   })
   const taskNumber = taskNumberCreater()
@@ -241,14 +241,14 @@ async function bindingBookmarkCount(allPagesImagesArray, keyword) {
   const bookmarkTaskResult = await bookmarkTask.doPromise()
 
   const resultMap = {}
-  bookmarkTaskResult.forEach((result) => Object.assign(resultMap, result.data.illust))
+  bookmarkTaskResult.forEach(result => Object.assign(resultMap, result.data.illust))
 
   // cache 部分
   const cacheFilePath = `./caches/${keyword}.json`
   Object.assign(cachedMap, resultMap)
   fs.writeFileSync(cacheFilePath, JSON.stringify(cachedMap, null, 2))
 
-  Object.keys(allPagesImagesMap).forEach((illustId) => {
+  Object.keys(allPagesImagesMap).forEach(illustId => {
     const urls = cachedMap[illustId].urls
     const bookmarkCount = cachedMap[illustId].bookmarkCount
     const likeCount = cachedMap[illustId].likeCount
@@ -262,7 +262,7 @@ async function bindingBookmarkCount(allPagesImagesArray, keyword) {
   return allPagesImagesMap
 
   function _each_image_page(illustId) {
-    return function() {
+    return function () {
       return request({
         method: 'get',
         url: `https://www.pixiv.net/artworks/${illustId}`,
@@ -270,7 +270,7 @@ async function bindingBookmarkCount(allPagesImagesArray, keyword) {
       }).then(([data]) => {
         const splitPattern1 = '<meta name="preload-data" id="meta-preload-data" content=\''
         const splitPattern2 = '</head>'
-        const splitPattern3 = '\'>'
+        const splitPattern3 = "'>"
         return JSON.parse(data.split(splitPattern1)[1].split(splitPattern2)[0].split(splitPattern3)[0])
       })
     }
@@ -279,8 +279,8 @@ async function bindingBookmarkCount(allPagesImagesArray, keyword) {
 
 // 過濾星星: 把bookmarkCount + likeCount 少於目標數的剔除
 function filterBookmarkCount(map, level = 0) {
-  const list = Object.keys(map).map((id) => map[id])
-  return list.filter((item) => {
+  const list = Object.keys(map).map(id => map[id])
+  return list.filter(item => {
     const likedLevel = item.bookmarkCount + item.likeCount
     return likedLevel >= level
   })
@@ -288,32 +288,29 @@ function filterBookmarkCount(map, level = 0) {
 
 // 區分出單張和組圖
 function separateSingleAndMultiple(list) {
-  return list.reduce((object, item) => {
-    switch (item.pageCount) {
-      case 1:
-        object.singleArray.push(item)
-        break
-      default:
-        object.multipleArray.push(item)
-        break
+  return list.reduce(
+    (object, item) => {
+      switch (item.pageCount) {
+        case 1:
+          object.singleArray.push(item)
+          break
+        default:
+          object.multipleArray.push(item)
+          break
+      }
+      return object
+    },
+    {
+      singleArray: [],
+      multipleArray: []
     }
-    return object
-  }, {
-    singleArray: [],
-    multipleArray: []
-  })
+  )
 }
 
 // fetchSingleImageUrl & fetchMultipleImageUrl:
 // 用來取得圖片的真實路徑並整理好格式
 function fetchSingleImagesUrl(list) {
-  return list.map(({
-    id,
-    userId,
-    illustTitle,
-    userName,
-    urls
-  }) => {
+  return list.map(({ id, userId, illustTitle, userName, urls }) => {
     const key = `${id}-${userId}`
     const name = `${illustTitle}_${id}_${userName}_${userId}`
     const original = urls.original
@@ -343,24 +340,21 @@ async function fetchMultipleImagesUrl(list) {
   const getMultiOriTask = new TaskSystem(taskArray, taskNumberCreater(), defaultTaskSetting())
   const getMultiOriTaskResult = await getMultiOriTask.doPromise()
 
-  const multiMap = list.reduce((map, item) => Object.assign(map, {
-    [item.illustId]: item
-  }), {})
+  const multiMap = list.reduce(
+    (map, item) =>
+      Object.assign(map, {
+        [item.illustId]: item
+      }),
+    {}
+  )
 
   let multiArray = []
-  getMultiOriTaskResult.forEach((result) => {
+  getMultiOriTaskResult.forEach(result => {
     const resultItem = result.data
     const illustId = resultItem.illustId
 
-    const {
-      id,
-      userId,
-      illustTitle,
-      userName
-    } = multiMap[illustId]
-    const multiImages = resultItem.data.map(({
-      urls
-    }) => {
+    const { id, userId, illustTitle, userName } = multiMap[illustId]
+    const multiImages = resultItem.data.map(({ urls }) => {
       const original = urls.original
       const index = original.split(original.split(/_p\d\./)[0])[1].split('.')[0]
 
@@ -388,7 +382,7 @@ async function fetchMultipleImagesUrl(list) {
   return multiArray
 
   function _create_get_multiple_images(illustId) {
-    return function() {
+    return function () {
       return request({
         method: 'get',
         url: `https://www.pixiv.net/ajax/illust/${illustId}/pages`,
@@ -429,7 +423,7 @@ async function startDownloadTask(sourceArray, keyword) {
   return downloadTaskResult
 
   function _create_download_task(image, keywordFolder) {
-    return function() {
+    return function () {
       const folder = `${keywordFolder}${image.folder}`
       switch (true) {
         case existFolderMap[folder]:
