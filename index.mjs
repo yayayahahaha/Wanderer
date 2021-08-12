@@ -17,10 +17,7 @@
 // Puppeteer 操偶師的實作必要性研究
 
 import fs from 'fs'
-import os from 'os'
-import flyc from 'npm-flyc'
-
-const { TaskSystem, download } = flyc // nodejs 的import 似乎無法直接解構?
+const { TaskSystem, download } = require('npm-flyc')
 // TODO
 // SESSID 的部分可以嘗試打post api 傳遞帳密後直接取得之類的
 // 或是取得多組SESSID 後放進array 做輪詢減少單一帳號的loading 之類的
@@ -48,24 +45,7 @@ const getKeywordsInfoUrl = function (keyword, page = 1) {
   const url = `https://www.pixiv.net/ajax/search/artworks/${keyword}?word=${keyword}&order=date&mode=all&p=${page}&s_mode=s_tag&type=all`
   return encodeURI(url)
 }
-const taskNumberCreater = function () {
-  const cpus = os.cpus()
-  const cpusAmount = cpus.length
-  const cpuSpec =
-    cpus.reduce(function (cardinalNumber, cpu) {
-      let total = 0
-      for (const item in cpu.times) {
-        total += cpu.times[item]
-      }
-      return cardinalNumber + (cpu.times.idle * 100) / total
-    }, 0) / cpusAmount
 
-  const memory = os.freemem() / Math.pow(1024, 3) // GB
-
-  const taskNumber = (memory * cpuSpec) / 10
-
-  return Math.round(taskNumber)
-}
 const defaultTaskSetting = function () {
   return {
     randomDelay: 0
