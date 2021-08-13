@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "node-fetch": "^2.6.1",
-    "npm-flyc": "^1.0.10"
+    "npm-flyc": "^1.0.10",
+    "qs": "^6.10.1"
   }
 }

@@ -21,4 +21,23 @@ const checkAndWrite = (filePath, data) => {
   return true
 }
 
-module.exports = { checkFolder, checkAndWrite }
+const checkAndRead = (filePath, doJsonParse = true) => {
+  return new Promise(resolve => {
+    let fileText = ''
+    try {
+      fileText = fs.readFileSync(filePath, 'utf8')
+    } catch (e) {
+      return resolve([null, 'file not exist'])
+    }
+
+    if (!doJsonParse) return resolve([fileText, null])
+
+    try {
+      return resolve([JSON.parse(fileText), null])
+    } catch (e) {
+      return resolve(fileText, null)
+    }
+  })
+}
+
+module.exports = { checkFolder, checkAndWrite, checkAndRead }

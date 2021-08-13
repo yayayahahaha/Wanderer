@@ -1,3 +1,50 @@
-import task from './task'
+const { checkAndRead } = require('./path.js')
+const { getArtWorks } = require('../api/index.js')
+const { TaskSystem } = require('npm-flyc')
 
-export { task }
+async function getParams(envPath = './input.json') {
+  const [env, envError] = await checkAndRead(envPath)
+  if (envError) {
+    console.error('[ERROR] 缺少 input.json! 請從 input.json.default 複製與修改')
+    return {}
+  }
+  return env
+}
+
+async function getAllArtWorks(config) {
+  const { PHPSESSID, keyword, totalPages } = config
+  const tasks = _createGetPhotosTasks({ PHPSESSID, keyword, totalPages }).slice(0, 1)
+
+  const taskFactory = new TaskSystem(tasks, 5, { randomDelay: 1000 /* 毫秒 */ })
+  const taskResults = await taskFactory.doPromise()
+
+  return taskResults.reduce((list, { data: [data, error] }) => {
+    if (error) return list
+    const {
+      data: { data: artWorks }
+    } = data
+    return list.concat(artWorks)
+  }, [])
+}
+
+function _createGetPhotosTasks(config = {}) {
+  const { PHPSESSID, keyword, totalPages } = config
+  return [...Array(totalPages)].map((n, i) => {
+    return async () => {
+      const page = `${i + 1}`
+      const [data, error] = await getArtWorks(PHPSESSID, keyword, page)
+      if (error) return [null, { page, error }]
+      return [{ page, data }, null]
+    }
+  })
+}
+
+function createPhotoLinks(artWorkLinks = []) {
+  return artWorkLinks.map(artWork => {
+    const { id: artWorkId, userName, userId, title } = artWork
+    const link = `https://www.pixiv.net/ajax/illust/${artWorkId}/pages?lang=zh_tw`
+    return { title, artWorkId, userName, userId, link }
+  })
+}
+
+module.exports = { getParams, getAllArtWorks, createPhotoLinks }
