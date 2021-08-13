@@ -1,5 +1,5 @@
 const { checkLoginStatus, getArtWorks } = require('./api/index.js')
-const { getParams, getAllArtWorks, createPhotoLinks } = require('./utils/index.js')
+const { getParams, getAllArtWorks, getAllPhotos } = require('./utils/index.js')
 
 const envPath = './input.json'
 
@@ -21,6 +21,6 @@ async function init() {
 
   const artWorks = await getAllArtWorks({ PHPSESSID, keyword, totalPages })
 
-  const photoLinks = createPhotoLinks(artWorks)
-  console.log(photoLinks)
+  const photos = await getAllPhotos({ PHPSESSID, artWorks })
+  console.log(photos)
 }

@@ -25,6 +25,14 @@ const getArtWorks = async (sessionId, keyword, page) => {
   return [returnData, null]
 }
 
+const getPhotos = async (sessionId, artWorkId) => {
+  const url = `https://www.pixiv.net/ajax/illust/${artWorkId}/pages?lang=zh_tw`
+  const [data, error] = await request(url, fetchConfig(sessionId))
+  if (error) return [null, error]
+  const photos = data.body.map(({ urls: { original } }) => original)
+  return [photos, null]
+}
+
 const checkLoginStatus = async function (sessionId) {
   const url = 'https://www.pixiv.net/ajax/linked_service/tumeng'
 
@@ -35,4 +43,4 @@ const checkLoginStatus = async function (sessionId) {
   return true
 }
 
-module.exports = { getArtWorks, checkLoginStatus }
+module.exports = { getArtWorks, checkLoginStatus, getPhotos }

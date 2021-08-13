@@ -1,5 +1,5 @@
 const { checkAndRead } = require('./path.js')
-const { getArtWorks } = require('../api/index.js')
+const { getArtWorks, getPhotos } = require('../api/index.js')
 const { TaskSystem } = require('npm-flyc')
 
 async function getParams(envPath = './input.json') {
@@ -13,7 +13,7 @@ async function getParams(envPath = './input.json') {
 
 async function getAllArtWorks(config) {
   const { PHPSESSID, keyword, totalPages } = config
-  const tasks = _createGetPhotosTasks({ PHPSESSID, keyword, totalPages }).slice(0, 1)
+  const tasks = _createGetArtWorksTasks({ PHPSESSID, keyword, totalPages }).slice(0, 1)
 
   const taskFactory = new TaskSystem(tasks, 5, { randomDelay: 1000 /* 毫秒 */ })
   const taskResults = await taskFactory.doPromise()
@@ -27,7 +27,28 @@ async function getAllArtWorks(config) {
   }, [])
 }
 
+async function getAllPhotos(payload) {
+  const { PHPSESSID, artWorks } = payload
+  const tasks = _createGetPhotosTasks({ PHPSESSID, artWorks }).slice(0, 5)
+
+  const taskFactory = new TaskSystem(tasks, 5, { randomDelay: 1000 })
+  const taskResults = await taskFactory.doPromise()
+
+  return taskResults.reduce((list, { data }) => list.concat([data]), [])
+}
 function _createGetPhotosTasks(config = {}) {
+  const { PHPSESSID, artWorks } = config
+  return artWorks.map(artWork => {
+    const { id: artWorkId, userName, userId, title } = artWork
+    return async function () {
+      const [photos, error] = await getPhotos(PHPSESSID, artWorkId)
+      if (error) return [null, error]
+      return { userName, userId, title, photos, artWorkId }
+    }
+  })
+}
+
+function _createGetArtWorksTasks(config = {}) {
   const { PHPSESSID, keyword, totalPages } = config
   return [...Array(totalPages)].map((n, i) => {
     return async () => {
@@ -39,12 +60,4 @@ function _createGetPhotosTasks(config = {}) {
   })
 }
 
-function createPhotoLinks(artWorkLinks = []) {
-  return artWorkLinks.map(artWork => {
-    const { id: artWorkId, userName, userId, title } = artWork
-    const link = `https://www.pixiv.net/ajax/illust/${artWorkId}/pages?lang=zh_tw`
-    return { title, artWorkId, userName, userId, link }
-  })
-}
-
-module.exports = { getParams, getAllArtWorks, createPhotoLinks }
+module.exports = { getParams, getAllArtWorks, getAllPhotos }
