@@ -25,6 +25,8 @@ const getArtWorks = async (sessionId, keyword, page) => {
   return [returnData, null]
 }
 
+// TODO: 這裡取到的資料沒有 liked 數目, 要直接呼叫 https://www.pixiv.net/artworks/91953835 從js中間去擷取
+// 如此這般，可以考慮看看直接呼叫的時候可不可以拿到其他資訊, 但感覺就是不行
 const getPhotos = async (sessionId, artWorkId) => {
   const url = `https://www.pixiv.net/ajax/illust/${artWorkId}/pages?lang=zh_tw`
   const [data, error] = await request(url, fetchConfig(sessionId))
