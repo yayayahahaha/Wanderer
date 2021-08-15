@@ -1,6 +1,7 @@
 const fs = require('fs')
 
 const checkFolder = (dir = './') => {
+  if (dir === '.') return true
   const last = dir.split('/').pop()
   if (last.match(/\./g)) return void console.error('路徑裡除了當前路徑以外不可以有 . ')
 

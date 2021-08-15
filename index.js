@@ -1,5 +1,6 @@
 const { checkLoginStatus, getArtWorks } = require('./api/index.js')
 const { getParams, getAllArtWorks, getAllPhotos } = require('./utils/index.js')
+const { checkAndWrite } = require('./utils/path.js')
 
 const envPath = './input.json'
 
@@ -22,5 +23,5 @@ async function init() {
   const artWorks = await getAllArtWorks({ PHPSESSID, keyword, totalPages })
 
   const photos = await getAllPhotos({ PHPSESSID, artWorks })
-  console.log(photos)
+  checkAndWrite(`./caches/${keyword}.json`, JSON.stringify(photos, null, 2))
 }

@@ -29,7 +29,7 @@ async function getAllArtWorks(config) {
 
 async function getAllPhotos(payload) {
   const { PHPSESSID, artWorks } = payload
-  const tasks = _createGetPhotosTasks({ PHPSESSID, artWorks }).slice(0, 2)
+  const tasks = _createGetPhotosTasks({ PHPSESSID, artWorks })
 
   const taskFactory = new TaskSystem(tasks, 5, { randomDelay: 1000 })
   const taskResults = await taskFactory.doPromise()
