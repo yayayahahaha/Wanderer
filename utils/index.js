@@ -13,7 +13,7 @@ async function getParams(envPath = './input.json') {
 
 async function getAllArtWorks(config) {
   const { PHPSESSID, keyword, totalPages } = config
-  const tasks = _createGetArtWorksTasks({ PHPSESSID, keyword, totalPages }).slice(0, 1)
+  const tasks = _createGetArtWorksTasks({ PHPSESSID, keyword, totalPages }).slice(0, 1) // TODO testing codes
 
   const taskFactory = new TaskSystem(tasks, 5, { randomDelay: 1000 /* 毫秒 */ })
   const taskResults = await taskFactory.doPromise()

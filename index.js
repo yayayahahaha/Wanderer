@@ -16,9 +16,11 @@ async function init() {
   if (error) return console.log('[ERROR] 關鍵字搜尋失敗!')
 
   const { total } = basicInfo
-
   const perPage = basicInfo.data.length
   const totalPages = Math.ceil(total / perPage)
+
+  console.log(`總共有 ${total} 項作品, 共 ${totalPages} 頁面`)
+  return
 
   const artWorks = await getAllArtWorks({ PHPSESSID, keyword, totalPages })
 
