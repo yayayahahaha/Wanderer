@@ -29,7 +29,7 @@ async function getAllArtWorks(config) {
 
 async function getAllPhotos(payload) {
   const { PHPSESSID, artWorks } = payload
-  const tasks = _createGetPhotosTasks({ PHPSESSID, artWorks }).slice(0, 5)
+  const tasks = _createGetPhotosTasks({ PHPSESSID, artWorks }).slice(0, 2)
 
   const taskFactory = new TaskSystem(tasks, 5, { randomDelay: 1000 })
   const taskResults = await taskFactory.doPromise()
@@ -41,9 +41,9 @@ function _createGetPhotosTasks(config = {}) {
   return artWorks.map(artWork => {
     const { id: artWorkId, userName, userId, title } = artWork
     return async function () {
-      const [photos, error] = await getPhotos(PHPSESSID, artWorkId)
+      const [photoInfo, error] = await getPhotos(PHPSESSID, artWorkId)
       if (error) return [null, error]
-      return { userName, userId, title, photos, artWorkId }
+      return { userName, userId, title, ...photoInfo, artWorkId }
     }
   })
 }

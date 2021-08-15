@@ -25,9 +25,48 @@ const getArtWorks = async (sessionId, keyword, page) => {
   return [returnData, null]
 }
 
-// TODO: 這裡取到的資料沒有 liked 數目, 要直接呼叫 https://www.pixiv.net/artworks/91953835 從js中間去擷取
-// 如此這般，可以考慮看看直接呼叫的時候可不可以拿到其他資訊, 但感覺就是不行
+/**
+ * @description 取得圖片的資訊和讚數
+ */
 const getPhotos = async (sessionId, artWorkId) => {
+  const [[photos, photosError], [likedData, likedError]] = await Promise.all([
+    getPhotoInfo(sessionId, artWorkId),
+    getPhotoLiked(sessionId, artWorkId)
+  ])
+  if (photosError || likedError) return [null, { photosError, likedError }]
+  const result = { photos, ...likedData }
+  return [result, null]
+}
+/**
+ * @description 取得圖片的讚數
+ * */
+const getPhotoLiked = async (sessionId, artWorkId) => {
+  const url = `https://www.pixiv.net/artworks/${artWorkId}`
+  const [response, error] = await request(url, fetchConfig(sessionId))
+  if (error) return [null, error]
+
+  const jsStr = response.split(/<meta name="preload-data" id="meta-preload-data" content='/)[1].split(/'>/)[0]
+  try {
+    const data = JSON.parse(jsStr).illust[artWorkId]
+    const attributes = [
+      'bookmarkCount',
+      'likeCount',
+      'commentCount',
+      'responseCount',
+      'viewCount',
+      'createDate',
+      'uploadDate'
+    ]
+    const returnItem = attributes.reduce((map, key) => Object.assign(map, { [key]: data[key] }), {})
+    return [returnItem, null]
+  } catch (e) {
+    return [null, e]
+  }
+}
+/**
+ * @description 取得圖片資訊
+ * */
+const getPhotoInfo = async (sessionId, artWorkId) => {
   const url = `https://www.pixiv.net/ajax/illust/${artWorkId}/pages?lang=zh_tw`
   const [data, error] = await request(url, fetchConfig(sessionId))
   if (error) return [null, error]
@@ -35,6 +74,9 @@ const getPhotos = async (sessionId, artWorkId) => {
   return [photos, null]
 }
 
+/**
+ * @description 檢查登入狀態
+ * */
 const checkLoginStatus = async function (sessionId) {
   const url = 'https://www.pixiv.net/ajax/linked_service/tumeng'
 
@@ -45,4 +87,4 @@ const checkLoginStatus = async function (sessionId) {
   return true
 }
 
-module.exports = { getArtWorks, checkLoginStatus, getPhotos }
+module.exports = { getArtWorks, checkLoginStatus, getPhotos, getPhotoLiked, getPhotoInfo }
