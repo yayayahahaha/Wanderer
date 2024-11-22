@@ -12,6 +12,7 @@
   "dependencies": {
     "node-fetch": "^2.6.1",
     "npm-flyc": "^1.0.19",
-    "qs": "^6.10.1"
+    "qs": "^6.10.1",
+    "youtube-dl-exec": "^3.0.10"
   }
 }
