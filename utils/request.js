@@ -1,17 +1,19 @@
-const fetch = require('node-fetch')
+import fetch from 'node-fetch'
 
-const request = async (path = '', config = {}) => {
-  const [data, error] = await fetch(encodeURI(path), config)
-    .then(async r => {
-      return r.ok ? [await r.text(), null] : Promise.reject(r)
+export async function fetchApi(path = '', config = {}) {
+  return fetch(encodeURI(path), config)
+    .then((res) => {
+      if (!res.ok) throw res.text()
+      try {
+        return res.json()
+      } catch (e) {
+        console.log(e)
+        return res.text()
+      }
     })
-    .catch(async e => (typeof e.text === 'function' ? [null, await e.text()] : [null, e]))
+    .catch((error) => {
+      console.log(error)
 
-  try {
-    return [JSON.parse(data), JSON.parse(error)]
-  } catch (e) {
-    return [data, error]
-  }
+      return { error }
+    })
 }
-
-module.exports = { request }

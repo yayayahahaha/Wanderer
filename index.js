@@ -54,3 +54,16 @@ async function init() {
 
   checkAndWrite(`./caches/${keyword}.json`, JSON.stringify(photos, null, 2))
 }
+
+/**
+ * @description 檢查登入狀態
+ * */
+const checkLoginStatus = async function (sessionId) {
+  const url = 'https://www.pixiv.net/ajax/linked_service/tumeng'
+
+  const [data, error] = await request(url, fetchConfig(sessionId))
+  if (error) return false
+  if (data.error) return false
+
+  return true
+}
