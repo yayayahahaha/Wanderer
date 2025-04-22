@@ -64,7 +64,9 @@ export class Artwork {
     await _recursive.call(this, linkList, 0)
     async function _recursive(list, currentPage) {
       const link = list[0]
-      const fileName = `test-img/${userAccount}/${userAccount}-${userId}-${title}-${currentPage}.png`
+      const fileName = `test-img/${userAccount}-${userId}/${this.#id}-${title}/${userAccount}-${userId}-${
+        this.#id
+      }-${title}-${currentPage}.png`
       const targetPath = path.resolve(process.cwd(), fileName)
       const addHeader = ['referer:https://www.pixiv.net/', `Cookie:PHPSESSID=${this.#session}`]
 
