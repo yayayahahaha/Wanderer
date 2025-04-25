@@ -2,8 +2,8 @@ import { fetchApi } from '../utils/request.js'
 import { generateFetchHeaders } from './header.js'
 import path from 'path'
 import youtubeDl from 'youtube-dl-exec'
-import { exec } from 'child_process'
-import { JSDOM } from 'jsdom'
+
+const delayTime = 500
 
 export class Artwork {
   #id
@@ -82,7 +82,7 @@ export class Artwork {
 
       if (list.length === 1) return void console.log('結束囉')
 
-      await new Promise((r) => setTimeout(r, 1000))
+      await new Promise((r) => setTimeout(r, delayTime))
       return _recursive.call(this, list.slice(1), currentPage + 1)
     }
   }
