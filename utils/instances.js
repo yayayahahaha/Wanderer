@@ -5,6 +5,26 @@ import youtubeDl from 'youtube-dl-exec'
 
 const delayTime = 500
 
+/**
+ * Artwork 類別 - 用於處理 Pixiv 的插圖資料
+ *
+ * @class Artwork
+ *
+ * 私有屬性:
+ * @property {string} #id - 插圖的唯一識別碼
+ * @property {object} #fetchHeaders - 用於 API 請求的 headers
+ * @property {string} #session - Pixiv 的登入 session
+ *
+ * 方法:
+ * @method constructor(id, sessionId) - 初始化 Artwork 實例
+ * @method generateCurl() - 生成對應插圖頁面的 curl 指令
+ * @method getArtWorkInfo() - 獲取插圖的基本資訊（標題、作者等）
+ * @method downloadAllImages() - 下載插圖的所有圖片
+ * @method getAllImagesUrl() - 獲取插圖的所有原始圖片網址
+ *
+ * @param {string} id - 插圖的 ID
+ * @param {string} sessionId - Pixiv 的登入 session ID
+ */
 export class Artwork {
   #id
   #fetchHeaders
@@ -50,6 +70,19 @@ export class Artwork {
     })
   }
 
+  /**
+   * 下載作品的所有圖片，並以組織化的結構儲存到本地
+   * @async
+   * @returns {Promise<void>} 所有圖片下載完成時解析，發生錯誤時拒絕
+   * @throws {Error} 當無法獲取作品資訊或無法取得圖片網址時拋出錯誤
+   * @description
+   * 函式執行以下步驟：
+   * 1. 獲取作品資訊，包含使用者ID、標題和使用者帳號
+   * 2. 取得作品相關的所有圖片網址
+   * 3. 以遞迴方式下載圖片，每次下載間有指定的延遲時間
+   * 4. 圖片儲存格式：test-img/[使用者帳號]-[使用者ID]/[作品ID]-[標題]/[使用者帳號]-[使用者ID]-[作品ID]-[標題]-[頁碼].png
+   * 使用 youtube-dl 並帶有 Pixiv 專用的標頭進行下載
+   */
   async downloadAllImages() {
     const { error: infoError, ...artworkInfo } = await this.getArtWorkInfo().catch((error) => ({ error }))
     if (infoError) return void console.log('infoError: ', infoError)
