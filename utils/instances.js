@@ -3,7 +3,7 @@ import { generateFetchHeaders } from './header.js'
 import path from 'path'
 import youtubeDl from 'youtube-dl-exec'
 
-const delayTime = 500
+const delayTime = 250
 
 /**
  * Artwork 類別 - 用於處理 Pixiv 的插圖資料
