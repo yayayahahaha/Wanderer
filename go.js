@@ -7,8 +7,13 @@ async function start() {
 
   const { session, idList = [] } = settings
 
+  const artworkLinkPattern = new RegExp('^https://www.pixiv.net/artworks/(\\d+)$')
+  const artworkIdPattern = /^\d+$/
+
   for (let i = 0; i < idList.length; i++) {
-    const artId = idList[i]
+    let artId = idList[i]
+    if (artworkLinkPattern.test(artId)) artId = artId.match(artworkLinkPattern)[1]
+    else if (!artworkIdPattern.test(artId)) continue
 
     const artwork = new Artwork(artId, session)
 
