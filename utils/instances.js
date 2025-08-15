@@ -2,6 +2,8 @@ import { fetchApi } from '../utils/request.js'
 import { generateFetchHeaders } from './header.js'
 import path from 'path'
 import youtubeDl from 'youtube-dl-exec'
+import pLimit from 'p-limit'
+import fs from 'fs'
 
 const delayTime = 100
 
@@ -29,6 +31,7 @@ export class Artwork {
   #id
   #fetchHeaders
   #session
+  #failedList = []
 
   generateCurl() {
     const url = `https://www.pixiv.net/artworks/${this.#id}`
@@ -85,38 +88,68 @@ export class Artwork {
    */
   async downloadAllImages() {
     const { error: infoError, ...artworkInfo } = await this.getArtWorkInfo().catch((error) => ({ error }))
-    if (infoError) return void console.log('infoError: ', infoError)
+    if (infoError) return void console.log(`取得 ${this.#id} 基本資訊失敗: `, infoError)
 
     const { userId, title, userAccount } = artworkInfo
+
+    console.log(`正要開始下載 ${title} - ${this.#id}`)
 
     const { error, linkList } = await this.getAllImagesUrl()
       .then((linkList) => ({ linkList }))
       .catch((error) => ({ error }))
     if (error) return void console.log(error)
 
-    await _recursive.call(this, linkList, 0)
-    async function _recursive(list, currentPage) {
-      const link = list[0]
+    const downloadInfoList = linkList.map((link, index) => {
       const fileName = `test-img/${userAccount}-${userId}/${this.#id}-${title}/${userAccount}-${userId}-${
         this.#id
-      }-${title}-${currentPage}.png`
+      }-${title}-${index}.png`
       const targetPath = path.resolve(process.cwd(), fileName)
       const addHeader = ['referer:https://www.pixiv.net/', `Cookie:PHPSESSID=${this.#session}`]
 
-      await youtubeDl(link, {
-        o: targetPath,
-        dumpJson: true,
-        addHeader,
+      return { link, fileName, targetPath, addHeader }
+    })
+
+    const { failedList } = await _doDownload.call(this, downloadInfoList)
+    this.#failedList = [...this.#failedList, ...failedList]
+    if (this.#failedList.length !== 0) {
+      const failedLog = `test-img/${userAccount}-${userId}/failed-log-${Date.now()}.json`
+      fs.writeFileSync(failedLog, JSON.stringify(this.#failedList, null, 2))
+      console.log('下載與重新嘗試都結束了, 但仍有沒有下載成功的檔案，已寫進 log 裡')
+    }
+
+    async function _doDownload(list, tryLimit = 2) {
+      const failedList = []
+      const limit = pLimit(4)
+      const promises = list.map((payload, index) => {
+        const { link, fileName, targetPath: o, addHeader } = payload
+
+        return limit(() =>
+          new Promise((resolve) => setTimeout(resolve, delayTime + Math.ceil(Math.random() * 100)))
+            .then(() => youtubeDl(link, { o, dumpJson: true, addHeader }))
+            .then(() => youtubeDl(link, { o, addHeader }))
+            .then(() => console.log(`${fileName} 下載完成`))
+            .catch((error) => {
+              console.log(`${this.#id}-${index} 下載失敗`)
+              console.log(error)
+              failedList.push(payload)
+            })
+        )
       })
-        .then(() => youtubeDl(link, { o: targetPath, addHeader }))
-        .then(() => {
-          console.log(`${fileName} 下載完成`)
-        })
 
-      if (list.length === 1) return void console.log('結束囉')
+      return Promise.all(promises).then(() => {
+        if (failedList.length !== 0) {
+          if (tryLimit <= 0) {
+            console.log('仍有失敗的下載嘗試，但超過重試次數了', failedList)
+            return { failedList }
+          }
 
-      await new Promise((r) => setTimeout(r, delayTime))
-      return _recursive.call(this, list.slice(1), currentPage + 1)
+          console.log(`有 ${failedList.length} 個失敗的項目，重新嘗試下載這些檔案`)
+          return _doDownload.call(this, failedList, tryLimit - 1)
+        } else {
+          console.log(`${title} - ${this.#id} 結束囉`)
+          return { failedList }
+        }
+      })
     }
   }
 

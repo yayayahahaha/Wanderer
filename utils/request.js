@@ -13,8 +13,4 @@ export async function fetchApi(path = '', config = {}) {
       if (ok && !json.error) return json
       throw text
     })
-    .catch((error) => {
-      console.log('error: ', error)
-      return { error }
-    })
 }

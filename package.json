@@ -15,6 +15,7 @@
     "jsdom": "^26.0.0",
     "node-fetch": "^3.3.2",
     "npm-flyc": "^1.0.19",
+    "p-limit": "^7.0.0",
     "qs": "^6.10.1",
     "undici": "^7.5.0",
     "youtube-dl-exec": "^3.0.10"
