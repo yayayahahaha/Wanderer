@@ -61,7 +61,7 @@ export class Artwork {
     this.#fetchHeaders = generateFetchHeaders(sessionId, id)
   }
 
-  getArtWorkInfo() {
+  async getArtWorkInfo() {
     return fetchApi(`https://www.pixiv.net/ajax/illust/${this.#id}?lang=zh_tw`, this.#fetchHeaders).then((res) => {
       const { body: { illustTitle, title, userId, userName, userAccount } = {} } = res
       return {
