@@ -17,6 +17,19 @@ export function lightGreen(msg) {
 export function lightBlue(msg) {
   return `\x1b[1m\x1b[34m${msg}\x1b[0m`
 }
+export function lightMagenta(msg) {
+  return `\x1b[1m\x1b[35m${msg}\x1b[0m`
+}
+export function lightCyan(msg) {
+  return `\x1b[1m\x1b[36m${msg}\x1b[0m`
+}
+export function lightYellow(msg) {
+  return `\x1b[1m\x1b[33m${msg}\x1b[0m`
+}
+
+export function errorConsole(redMsg, ...others) {
+  console.log(red(redMsg), ...others)
+}
 
 export async function readSettings() {
   let errorMessage = ''
@@ -45,6 +58,10 @@ export function readFilesRecursively(pathStr, list = []) {
 }
 function isDir(path) {
   return fs.lstatSync(path).isDirectory()
+}
+
+export function getMd5(value) {
+  return createHash('md5').update(value).digest('hex')
 }
 
 export async function getFileMD5(filePath) {

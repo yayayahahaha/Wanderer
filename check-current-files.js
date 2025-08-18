@@ -3,14 +3,20 @@
 // TODO(flyc): 在關閉的時候把完成的檔案放到 json 的另外一個 keys 裡, 寫入前檢查如果 json 有被手動異動的話，就寫成 log
 
 // import pLimit from 'p-limit'
-import { getFileMD5, lightBlue, lightGreen, readFilesRecursively, red, removeSlash } from './utils.js'
-import path from 'path'
+import {
+  errorConsole,
+  getFileMD5,
+  lightBlue,
+  lightCyan,
+  lightGreen,
+  lightMagenta,
+  lightYellow,
+  readFilesRecursively,
+  red,
+} from './utils.js'
 import fs from 'fs'
 import { Artwork } from './utils/instances.js'
 import pLimit from 'p-limit'
-import youtubeDl from 'youtube-dl-exec'
-
-const storage = 'check-images'
 
 class ImagesDiff {
   #newMd5 = null
@@ -46,6 +52,9 @@ class ImagesDiff {
   }
 }
 
+const verbose = false
+const excluded = new Set(['123077070', '133266390', '133489284', '133632363'])
+
 async function start() {
   const allFiles = readFilesRecursively('./test-img')
 
@@ -53,116 +62,103 @@ async function start() {
     const matched = filePath.match(/^test-img\/[^/]+-(\d+)\/(\d+)-.*/) ?? null
     if (matched == null) return acc
 
-    const artId = matched?.[2]
-    acc.add(artId)
+    const id = matched?.[2]
+    acc.add(id)
     return acc
   }, new Set())
-  const artworkInfoList = [...artIdSet].map((artId) => new Artwork(artId)).slice(0, 5 /* TODO(flyc): testing codes */)
+  const artworkInfoList = [...artIdSet]
+    .filter((id) => !excluded.has(id))
+    .map((id) => new Artwork(id))
+    .slice(0, 1 /* TODO(flyc): testing codes */)
 
-  const artInfoPromiese = artworkInfoList.map((artwork) => {
-    const limit = pLimit(2)
+  console.log(`這次要處理 ${artworkInfoList.length} 個`)
+  let finishedCount = 0
 
-    return limit(async () => {
-      return Promise.all([artwork.getArtWorkInfo(), artwork.getAllImagesUrl()])
-        .then((res) => {
-          const artInfo = res[0]
-          const { userId, userAccount, title } = artInfo
-          const { artId } = artwork
+  const infoLimit = pLimit(2)
+  const artPromise = artworkInfoList.map((item, artIndex) => {
+    const colorFn = artIndex % 3 === 1 ? lightCyan : artIndex % 3 === 2 ? lightMagenta : lightYellow
 
-          const authorFolder = removeSlash(`${userAccount}-${userId}`)
-          const artworkFolder = removeSlash(`${artId}-${title}`)
+    return infoLimit(async () => {
+      let error = null
+      error = (await item.genArtworkInfo().catch((error) => ({ error })))?.error
+      if (error) throw error
+      verbose && console.log(`取得 ${item.artworkInfo.id}-${item.artworkInfo.title} 的基本資訊成功 ✅📂`)
 
-          return {
-            error: null,
-            ...artInfo,
-            artworkId: artwork.artId,
-            images: res[1].map((downloadLink, index) => {
-              const { ext } = path.parse(new URL(downloadLink).pathname)
-              const regExp = new RegExp(`${userId}.*${artId}.*-${index}\\.\\w+`)
-              const targetFile = removeSlash(`${userAccount}-${userId}-${artId}-${title}-${index}-v0${ext}`)
-              const targetFileName = path.join(storage, authorFolder, artworkFolder, targetFile)
+      // 嘗試處理 cache folder
+      item.genCachePossableMap()
 
-              return new ImagesDiff({
-                targetFileName,
-                downloadLink,
-                potentialCurrent: allFiles.find((filePath) => filePath.match(regExp)?.[0]) ?? null,
-              })
-            }),
-          }
-        })
-        .catch((error) => ({ error }))
-        .then(({ error, ...res }) => {
-          if (error != null) return { error, artworkId: artwork.artId }
-          return res
-        })
-    })
-  })
+      error = (await item.genImages().catch((error) => ({ error })))?.error
+      if (error) throw error
+      verbose && console.log(`取得 ${item.artworkInfo.id}-${item.artworkInfo.title} 的圖片資訊成功 ✅📸`)
 
-  const infoFailedList = []
-  const infoList = (await Promise.all(artInfoPromiese)).filter((result) => {
-    if (result.error != null) {
-      infoFailedList.push(result.artworkId)
-      return false
-    }
-    return true
-  })
-  if (infoFailedList.length !== 0) {
-    const logName = `logs/info-failed-list/${Date.now()}.json`
-    console.log(red(`有一些作品的資訊取得失敗, 存入 log: ${logName}`))
-    fs.mkdirSync(path.parse(logName).dir, { recursive: true })
-    fs.writeFileSync(logName, JSON.stringify(infoFailedList, null, 2))
-  }
-
-  const artDonwloadLimit = pLimit(2)
-  const wholeDownloadPromises = infoList.map((artInfo) => {
-    const addHeader = ['referer:https://www.pixiv.net/', `Cookie:PHPSESSID=`]
-
-    return artDonwloadLimit(async () => {
-      console.log(lightBlue(`開始處理 ${artInfo.artworkId}-${artInfo.title}, 一共有 ${artInfo.images.length} 張圖片`))
-      const imageLimit = pLimit(4)
-
-      const imagesPromise = artInfo.images.map((info) =>
-        imageLimit(async () => {
-          const { downloadLink: link, targetFileName: o } = info
-
-          return new Promise((resolve) => setTimeout(resolve, 100 + Math.ceil(Math.random() * 100)))
-            .then(() => youtubeDl(link, { o, dumpJson: true, addHeader }))
-            .then(() => youtubeDl(link, { o, addHeader }))
-            .then(() => console.log(`${o} 下載成功`))
-            .then(() => new ImagesDiff({ ...info, error: null }))
-            .catch((error) => {
-              console.log(red(`${o} 下載失敗`))
-              return new ImagesDiff({ ...info, error })
-            })
-        })
+      let imgFinishedCount = 0
+      console.log(
+        colorFn(`🎁 ${`${item.artworkInfo.title} - ${item.artworkInfo.id} `} 有 ${item.images.length} 張圖片`)
       )
 
-      const images = await Promise.all(imagesPromise)
-      const checkImagePromises = images.map(async (imageInfo) => {
-        const checkImageLimit = pLimit(10)
+      const imgLimit = pLimit(4)
+      const imgPromises = item.images.map((img) => {
+        return imgLimit(async () => {
+          let error = null
 
-        return checkImageLimit(async () => {
-          await imageInfo.getMd5()
-          if (imageInfo.isSame == null) return
+          error = (await img.genHeaderInfo().catch((error) => ({ error })))?.error
+          if (error) throw error
+          verbose && console.log(`取得圖片 ${img.fileName} 的標頭成功 ✅🎇`)
 
-          if (imageInfo.isSame) {
-            console.log(`${imageInfo.targetFileName} 相同，刪除舊的`)
-            fs.rmSync(imageInfo.potentialCurrent)
+          await img.download('check-images')
+          verbose && console.log(`${img.fileName} 下載成功 ✅💖`)
+
+          const {
+            artworkInfo: { userId, id },
+            index,
+          } = img
+
+          const regExp = new RegExp(`${userId}.*${id}.*-${index}\\.\\w+`)
+
+          const potentialCurrent = allFiles.find((filePath) => filePath.match(regExp)?.[0]) ?? null
+
+          const imgDiff = new ImagesDiff({
+            targetFileName: `check-images/${img.fileName}`,
+            potentialCurrent,
+          })
+
+          if (imgDiff.potentialCurrent == null) {
+            console.log(lightBlue(`${imgDiff.targetFileName} 沒有舊的檔案，是全新的`))
           } else {
-            console.log(`${imageInfo.targetFileName} 不同，把舊的重新命名成 v0 + 把新的命名成 v1`)
-            console.log(red('這裡要測, 也會有「新的比較多」的場景'))
+            await imgDiff.getMd5()
+            if (imgDiff.isSame == null) return
+
+            if (imgDiff.isSame) {
+              fs.rmSync(imgDiff.potentialCurrent)
+              verbose && console.log(`${imgDiff.targetFileName} 相同，刪除舊的`)
+            } else {
+              fs.renameSync(imgDiff.targetFileName, imgDiff.targetFileName.replace(/-v0/, '-v1'))
+              fs.renameSync(imgDiff.potentialCurrent, imgDiff.targetFileName)
+              console.log(lightBlue(`${imgDiff.targetFileName} 不相同，移動新的到 v1, 舊的到 v0`))
+            }
           }
 
-          return // TODO(flyc): 要做什麼嗎?
+          imgFinishedCount++
+          console.log(
+            `🦀 ${colorFn(`${item.artworkInfo.title} - ${item.artworkInfo.id} `)}: ${imgFinishedCount}/${
+              item.images.length
+            }`
+          )
+
+          return { img, imgDiff }
         })
       })
-      await Promise.all(checkImagePromises)
-      console.log(lightGreen(`${artInfo.title}-${artInfo.artworkId} 處理結束`))
+      await Promise.all(imgPromises)
+
+      finishedCount++
+      console.log(`\n🎀 ${finishedCount}/${artworkInfoList.length}\n`)
     })
   })
 
-  // TODO(flyc): 這邊的寫法目前很暴力，可以再改成 limit 的那種
-
-  await Promise.all(wholeDownloadPromises)
+  await Promise.all(artPromise)
+    .then(() => {
+      console.log(lightGreen('成功囉'))
+    })
+    .catch((error) => errorConsole('出事..', error))
 }
 start()
