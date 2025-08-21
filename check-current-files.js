@@ -53,7 +53,17 @@ class ImagesDiff {
 }
 
 const verbose = false
-const excluded = new Set(['123077070', '133266390', '133489284', '133632363'])
+const excluded = new Set([
+  '123077070',
+  '133266390',
+  '133489284',
+  '133632363',
+  '128804234',
+  '131135611',
+  '129323226',
+  '123240441',
+  '129965485',
+])
 
 async function start() {
   const allFiles = readFilesRecursively('./test-img')

@@ -1,10 +1,18 @@
+// TODO(flyc) hash 機制有問題，有可能圖片一樣但 hash 不一樣，看還有沒有其他方法..
+// > 要寫個 script 剃除掉重複的圖片，有點太多了
+// > % 數的也可以
+// TODO(flyc) 對於 plimit 的行為還是不太確定，到底 promise.all 在收到 error 的時候會不會停止的這件事情怪怪的，一層好像會、雙層就會怪怪的
+
 import { fetchApi } from '../utils/request.js'
 import { generateFetchHeaders } from './header.js'
 import path from 'path'
 
 import fs from 'fs'
-import { doDownload, errorConsole, getMd5, lightMagenta, removeSlash } from '../utils.js'
+import { colorFn, doDownload, errorConsole, getMd5, lightGreen, lightMagenta, lightRed, removeSlash } from '../utils.js'
 import youtubeDl from 'youtube-dl-exec'
+import pLimit from 'p-limit'
+
+const storage = 'check-images'
 
 class ImageHeader {
   #neededKeys = ['last-modified', 'content-length']
@@ -55,7 +63,9 @@ export class Image {
             return Promise.resolve()
           } else {
             console.log(
-              lightMagenta(` 💃 ${this.displayName} 的 ${this.index} 有 新的版本! ${hash} ! 將有新的版本 ${v + 1}`)
+              lightMagenta(
+                ` 💃 ${this.displayName} 的 ${this.index} 有 新的版本! ${hash} ! ${lightRed(`將有新的版本 ${v + 1}`)}`
+              )
             )
             this.newV = v + 1
           }
@@ -70,7 +80,7 @@ export class Image {
     return (
       this.fetchHeaderInfo()
         // TODO(flyc): 這裡要檢查 cache
-        .then(() => youtubeDl(this.originalLink, { o, addHeader }))
+        .then(async () => youtubeDl(this.originalLink, { o, addHeader }))
         .then(() => {
           if (!fs.existsSync(o)) {
             if (retryLimit <= 0) {
@@ -81,7 +91,6 @@ export class Image {
             return this.download(storage, retryLimit - 1)
           }
         })
-        .catch((error) => ({ error }))
     )
   }
 
@@ -179,7 +188,7 @@ export class Artwork {
     const artworkFolder = removeSlash(`${id}-${title}`)
 
     // TODO(flyc) storage 的部分
-    const folder = `check-images/${authorFolder}/${artworkFolder}`
+    const folder = `${storage}/${authorFolder}/${artworkFolder}`
 
     if (!fs.existsSync(folder)) return
 
@@ -235,6 +244,48 @@ export class Artwork {
     }
 
     this.#images = res.list.map((imageLink) => new Image(imageLink, this.artworkInfo, this.cachePossableMap))
+  }
+
+  async downloadFlow({ verbose = false, seq = 0 } = {}) {
+    const artworkInfoError = (await this.genArtworkInfo().catch((error) => ({ error })))?.error
+    if (artworkInfoError != null) throw artworkInfoError
+    console.log(`✨✨✨ 正要開始下載 ${this.displayName} ✨✨✨`)
+
+    // 嘗試處理 cache folder
+    this.genCachePossableMap()
+
+    const imagesError = (await this.genImages().catch((error) => ({ error })))?.error
+    if (imagesError != null) throw imagesError
+
+    let imgFinishedCount = 0
+    const imgLimit = pLimit(4)
+    const imgPromises = this.images.map((img) => {
+      return imgLimit(async () => {
+        let error = null
+
+        error = (await img.genHeaderInfo().catch((error) => ({ error })))?.error
+        if (error) throw error
+        verbose && console.log(`取得圖片 ${img.fileName} 的標頭成功 ✅🎇`)
+
+        error = (await img.download(`${storage}`).catch((error) => ({ error })))?.error
+        if (error) {
+          console.log(lightRed(`💥 ${img.fileName} 下載失敗 💥`))
+          throw error
+        }
+        verbose && console.log(`${img.fileName} 下載成功 ✅💖`)
+
+        imgFinishedCount++
+        console.log(
+          `🦀 ${colorFn(seq)(`${this.artworkInfo.title} - ${this.artworkInfo.id} `)}: ${imgFinishedCount}/${
+            this.images.length
+          }`
+        )
+      })
+    })
+    const downloadImagesError = (await Promise.all(imgPromises).catch((error) => ({ error })))?.error
+    if (downloadImagesError) throw downloadImagesError
+
+    console.log(lightGreen(`💃 ${this.displayName} 下載成功`))
   }
 
   async downloadAllImages() {

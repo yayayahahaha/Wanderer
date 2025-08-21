@@ -8,6 +8,9 @@ import pLimit from 'p-limit'
 const configFileName = 'setting.json'
 const configFilePath = path.resolve('.', configFileName)
 
+export function lightRed(msg) {
+  return `\x1b[1m\x1b[31m${msg}\x1b[0m`
+}
 export function red(msg) {
   return `\x1b[31m${msg}\x1b[0m`
 }
@@ -25,6 +28,9 @@ export function lightCyan(msg) {
 }
 export function lightYellow(msg) {
   return `\x1b[1m\x1b[33m${msg}\x1b[0m`
+}
+export function colorFn(index) {
+  return index % 3 === 1 ? lightCyan : index % 3 === 2 ? lightMagenta : lightYellow
 }
 
 export function errorConsole(redMsg, ...others) {
