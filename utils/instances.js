@@ -2,6 +2,7 @@
 // > 要寫個 script 剃除掉重複的圖片，有點太多了
 // > % 數的也可以
 // TODO(flyc) 對於 plimit 的行為還是不太確定，到底 promise.all 在收到 error 的時候會不會停止的這件事情怪怪的，一層好像會、雙層就會怪怪的
+// 或是在計算到有同樣 index 但 hash 不同的時候，直接檢查 md5 或是 % 數之類的
 
 import { fetchApi } from '../utils/request.js'
 import { generateFetchHeaders } from './header.js'
