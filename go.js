@@ -43,3 +43,7 @@ async function start() {
   })
 }
 start()
+
+/*process.on('SIGINT', () => {
+  console.log('\n收到 Ctrl+C 信號，正在準備進度報告...')
+})*/

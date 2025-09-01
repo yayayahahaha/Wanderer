@@ -9,7 +9,19 @@ import { generateFetchHeaders } from './header.js'
 import path from 'path'
 
 import fs from 'fs'
-import { colorFn, doDownload, errorConsole, getMd5, lightGreen, lightMagenta, lightRed, removeSlash } from '../utils.js'
+import {
+  colorFn,
+  compare2Files,
+  doDownload,
+  errorConsole,
+  getMd5,
+  lightBlue,
+  lightGreen,
+  lightMagenta,
+  lightRed,
+  lightYellow,
+  removeSlash,
+} from '../utils.js'
 import youtubeDl from 'youtube-dl-exec'
 import pLimit from 'p-limit'
 
@@ -34,11 +46,14 @@ export class Image {
     this.originalLink = link
     this.artworkInfo = artworkInfo
     this.cachePossableMap = cachePossableMap
-    this.newV = null
+    this.newV = 0
   }
 
   get displayName() {
     return `${this.artworkInfo.title} - ${this.artworkInfo.id}`
+  }
+  get displayNameWithIndex() {
+    return `${this.displayName} - ${this.index}`
   }
 
   download(storage = null, retryLimit = 2) {
@@ -58,14 +73,12 @@ export class Image {
         const { hash, index, v } = matchCacheInfo
         if (index === this.index) {
           if (hash === this.headerHash) {
-            console.log(
-              lightMagenta(` 🧿 ${this.displayName} 的 ${this.index} 有 cache ${this.headerHash} ! 不做下載 !`)
-            )
+            console.log(lightMagenta(` 🧿 ${this.displayNameWithIndex} 有 cache ${this.headerHash} ! 不做下載 !`))
             return Promise.resolve()
           } else {
             console.log(
               lightMagenta(
-                ` 💃 ${this.displayName} 的 ${this.index} 有 新的版本! ${hash} ! ${lightRed(`將有新的版本 ${v + 1}`)}`
+                ` 💃 ${this.displayNameWithIndex} 有 新的版本! ${hash} ! ${lightRed(`將有新的版本 ${v + 1}`)}`
               )
             )
             this.newV = v + 1
@@ -90,6 +103,34 @@ export class Image {
 
             console.log(`下載完，但檔案不存在，重新嘗試.. 剩餘次數: ${retryLimit - 1}`)
             return this.download(storage, retryLimit - 1)
+          }
+        })
+        .then(async () => {
+          if (this.newV === 0) return
+
+          console.log(
+            lightMagenta(`  > ${this.displayNameWithIndex} 新版本 ${this.newV} 下載完畢，將開始比較新版與舊版的 md5`)
+          )
+          const oldFileName = path.join(storage, this.fileName)
+          const newFileName = path.join(storage, this.versionZeroFileName ?? '________.___')
+
+          const { isSame, error } = await compare2Files(oldFileName, newFileName)
+            .then((isSame) => ({ isSame }))
+            .catch((error) => ({ error }))
+          if (error != null) {
+            console.log(lightRed(`  > ${this.displayNameWithIndex} 發生錯誤! 兩個檔案都保留`))
+          } else {
+            if (isSame) {
+              console.log(lightYellow(`  > ${this.displayNameWithIndex} 兩個檔案一樣! 移除舊的檔案並用新的檔案取代!`))
+              fs.renameSync(
+                newFileName,
+                path.join(storage, this.#genFileNameWithVersion(this.newV, { hash: this.headerHash }))
+              )
+              fs.rmSync(oldFileName)
+              console.log(lightYellow(`  > ${this.displayNameWithIndex} 取代成功`))
+            } else {
+              console.log(lightBlue(`  > ${this.displayNameWithIndex} 兩個檔案不一樣! 兩個都保留`))
+            }
           }
         })
     )
@@ -136,18 +177,34 @@ export class Image {
     return path.parse(new URL(this.originalLink).pathname).ext
   }
 
-  get fileName() {
+  #genFileNameWithVersion(version = 0, { hash: originHash = null } = {}) {
     const { title, userId, userAccount, id } = this.artworkInfo
-    const { index, ext, headerHash } = this
-
+    const { index, ext } = this
     const authorFolder = removeSlash(`${userAccount}-${userId}`)
     const artworkFolder = removeSlash(`${id}-${title}`)
-    const targetFile = removeSlash(
-      `${userAccount}-${userId}-${id}-${title}-${index}-v${this.newV ?? 0}-${headerHash}${ext}`
-    )
-    const targetFileName = path.join(authorFolder, artworkFolder, targetFile)
+    const lastFolder = path.join(authorFolder, artworkFolder)
+
+    let hash = originHash
+    if (hash == null) {
+      const matchFileName =
+        fs.readdirSync(path.join(storage, lastFolder)).filter((fileName) => {
+          return new RegExp(`v${version}-\\w{10}${ext}$`).test(fileName)
+        })[0] ?? null
+      if (!matchFileName) return null
+
+      return path.join(lastFolder, matchFileName)
+    }
+
+    const targetFile = removeSlash(`${userAccount}-${userId}-${id}-${title}-${index}-v${version}-${hash}${ext}`)
+    const targetFileName = path.join(lastFolder, targetFile)
 
     return targetFileName
+  }
+  get versionZeroFileName() {
+    return this.#genFileNameWithVersion(0)
+  }
+  get fileName() {
+    return this.#genFileNameWithVersion(this.newV ?? 0, { hash: this.headerHash })
   }
 }
 
@@ -270,7 +327,7 @@ export class Artwork {
 
         error = (await img.download(`${storage}`).catch((error) => ({ error })))?.error
         if (error) {
-          console.log(lightRed(`💥 ${img.fileName} 下載失敗 💥`))
+          console.log(lightRed(`💥 ${img.fileName} 下載失敗 💥`), error)
           throw error
         }
         verbose && console.log(`${img.fileName} 下載成功 ✅💖`)

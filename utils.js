@@ -66,6 +66,16 @@ function isDir(path) {
   return fs.lstatSync(path).isDirectory()
 }
 
+export async function compare2Files(f1, f2) {
+  try {
+    const [hash1, hash2] = await Promise.all([getFileMD5(f1), getFileMD5(f2)])
+    return hash1 === hash2
+  } catch (error) {
+    console.log(red('[compare2Files]發生錯誤: '), error)
+    throw error
+  }
+}
+
 export function getMd5(value) {
   return createHash('md5').update(value).digest('hex')
 }
