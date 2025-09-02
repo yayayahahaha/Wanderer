@@ -70,18 +70,20 @@ export class Image {
       const matchCacheInfo = this.cachePossableMap[this.index] ?? null
 
       if (matchCacheInfo != null) {
-        const { hash, index, v } = matchCacheInfo
+        const { hashMap, index, maxV } = matchCacheInfo
         if (index === this.index) {
-          if (hash === this.headerHash) {
-            console.log(lightMagenta(` 🧿 ${this.displayNameWithIndex} 有 cache ${this.headerHash} ! 不做下載 !`))
-            return Promise.resolve()
-          } else {
+          if (hashMap[this.headerHash] == null) {
             console.log(
               lightMagenta(
-                ` 💃 ${this.displayNameWithIndex} 有 新的版本! ${hash} ! ${lightRed(`將有新的版本 ${v + 1}`)}`
+                ` 💃 ${this.displayNameWithIndex} 有新的版本! ${this.headerHash} ! ${lightRed(
+                  `新的版本號: ${maxV + 1}`
+                )}`
               )
             )
-            this.newV = v + 1
+            this.newV = maxV + 1
+          } else {
+            console.log(lightMagenta(` 🧿 ${this.displayNameWithIndex} 有 cache ${this.headerHash} ! 不做下載 !`))
+            return Promise.resolve()
           }
         }
       } else {
@@ -111,8 +113,10 @@ export class Image {
           console.log(
             lightMagenta(`  > ${this.displayNameWithIndex} 新版本 ${this.newV} 下載完畢，將開始比較新版與舊版的 md5`)
           )
-          const oldFileName = path.join(storage, this.fileName)
-          const newFileName = path.join(storage, this.versionZeroFileName ?? '________.___')
+          const matchCacheInfo = this.cachePossableMap[this.index] ?? null
+
+          const oldFileName = matchCacheInfo.fileName
+          const newFileName = path.join(storage, this.fileName)
 
           const { isSame, error } = await compare2Files(oldFileName, newFileName)
             .then((isSame) => ({ isSame }))
@@ -121,13 +125,9 @@ export class Image {
             console.log(lightRed(`  > ${this.displayNameWithIndex} 發生錯誤! 兩個檔案都保留`))
           } else {
             if (isSame) {
-              console.log(lightYellow(`  > ${this.displayNameWithIndex} 兩個檔案一樣! 移除舊的檔案並用新的檔案取代!`))
-              fs.renameSync(
-                newFileName,
-                path.join(storage, this.#genFileNameWithVersion(this.newV, { hash: this.headerHash }))
-              )
-              fs.rmSync(oldFileName)
-              console.log(lightYellow(`  > ${this.displayNameWithIndex} 取代成功`))
+              console.log(lightYellow(`  > ${this.displayNameWithIndex} 兩個檔案一樣! 移除新的檔案!`))
+              fs.rmSync(newFileName)
+              console.log(lightYellow(`  > ${this.displayNameWithIndex} 操作成功`))
             } else {
               console.log(lightBlue(`  > ${this.displayNameWithIndex} 兩個檔案不一樣! 兩個都保留`))
             }
@@ -261,8 +261,9 @@ export class Artwork {
 
       acc[index] = {
         index,
-        v: Math.max(acc[hash]?.v ?? 0, Number(v)),
-        hash,
+        hashMap: { ...(acc[index]?.hashMap ?? {}), [hash]: v },
+        maxV: Math.max(acc[index]?.v ?? 0, Number(v)),
+        fileName: name,
       }
 
       return acc
