@@ -14,6 +14,7 @@ import {
   compare2Files,
   doDownload,
   errorConsole,
+  getFileMD5,
   getMd5,
   lightBlue,
   lightGreen,
@@ -115,22 +116,45 @@ export class Image {
           )
           const matchCacheInfo = this.cachePossableMap[this.index] ?? null
 
-          const oldFileName = matchCacheInfo.fileName
-          const newFileName = path.join(storage, this.fileName)
+          const cacheMd5Map = (
+            await Promise.all(
+              matchCacheInfo.hashList.map(async (hasInfo) => {
+                return {
+                  md5: await getFileMD5(hasInfo.fileName),
+                  hasInfo,
+                }
+              })
+            )
+          ).reduce((acc, md5Result) => {
+            acc[md5Result.md5] = md5Result.hasInfo
+            return acc
+          }, {})
 
-          const { isSame, error } = await compare2Files(oldFileName, newFileName)
-            .then((isSame) => ({ isSame }))
-            .catch((error) => ({ error }))
-          if (error != null) {
-            console.log(lightRed(`  > ${this.displayNameWithIndex} 發生錯誤! 兩個檔案都保留`))
+          const newFileName = path.join(storage, this.fileName)
+          const newFileMd5 = await getFileMD5(newFileName)
+
+          const matchedMd5FileInfo = cacheMd5Map[newFileMd5]
+
+          if (matchedMd5FileInfo != null) {
+            console.log(
+              lightYellow(
+                `  > ${this.displayNameWithIndex} 兩個檔案一樣! 用新的檔案替換舊的檔案的 version 但保留新檔案的 hash!`
+              )
+            )
+
+            const oldFileName = matchedMd5FileInfo.fileName
+            const oldVersion = matchedMd5FileInfo.v
+
+            const finalNewFileName = path.join(
+              storage,
+              this.#genFileNameWithVersion(oldVersion, { hash: this.headerHash })
+            )
+
+            fs.rmSync(oldFileName)
+            fs.renameSync(newFileName, finalNewFileName)
+            console.log(lightYellow(`  > ${this.displayNameWithIndex} 操作成功`))
           } else {
-            if (isSame) {
-              console.log(lightYellow(`  > ${this.displayNameWithIndex} 兩個檔案一樣! 移除新的檔案!`))
-              fs.rmSync(newFileName)
-              console.log(lightYellow(`  > ${this.displayNameWithIndex} 操作成功`))
-            } else {
-              console.log(lightBlue(`  > ${this.displayNameWithIndex} 兩個檔案不一樣! 兩個都保留`))
-            }
+            console.log(lightBlue(`  > ${this.displayNameWithIndex} 沒有一樣的檔案! 全部都保留!`))
           }
         })
     )
@@ -246,7 +270,7 @@ export class Artwork {
     const artworkFolder = removeSlash(`${id}-${title}`)
 
     // TODO(flyc) storage 的部分
-    const folder = `${storage}/${authorFolder}/${artworkFolder}`
+    const folder = path.join(storage, authorFolder, artworkFolder)
 
     if (!fs.existsSync(folder)) return
 
@@ -254,16 +278,26 @@ export class Artwork {
 
     this.cachePossableMap = fs.readdirSync(folder).reduce((acc, name) => {
       if (/\.part$/.test(name)) return acc
+      if (name === '.DS_Store') return acc
 
       const hashReg = /-(\d+)-v(\d+)-(\w{10})\.\w+$/
       const [, index, v, hash] = name.match(hashReg) ?? []
       if (index == null) console.log(name)
 
+      const hashInfo = {
+        hash,
+        fileName: path.join(folder, name),
+        v,
+      }
+
       acc[index] = {
         index,
-        hashMap: { ...(acc[index]?.hashMap ?? {}), [hash]: v },
-        maxV: Math.max(acc[index]?.v ?? 0, Number(v)),
-        fileName: name,
+        hashMap: {
+          ...(acc[index]?.hashMap ?? {}),
+          [hash]: hashInfo,
+        },
+        hashList: [...(acc[index]?.hashList ?? []), hashInfo],
+        maxV: Math.max(acc[index]?.maxV ?? 0, Number(v)),
       }
 
       return acc
