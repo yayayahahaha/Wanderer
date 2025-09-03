@@ -1,6 +1,4 @@
-// TODO(flyc): cache 系統: 透過 method head 來快速取得 headers 的資訊，藉此判斷有沒有拉過
-// 快取前置: 取得當前既有的檔案的檔名後生成連結，然後再去取一次。取回來之後計算 md5 hash, 如果不一致的話就把舊的重新取名為 v1, 然後新的就是 v2
-// TODO(flyc): 在關閉的時候把完成的檔案放到 json 的另外一個 keys 裡, 寫入前檢查如果 json 有被手動異動的話，就寫成 log
+// TODO(flyc): 在關閉的時候輸出 or 匯出進度資訊
 
 import { lightBlue, lightRed, readSettings } from './utils.js'
 import { Artwork } from './utils/instances.js'
