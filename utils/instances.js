@@ -354,7 +354,10 @@ export class Artwork {
         let error = null
 
         error = (await img.genHeaderInfo().catch((error) => ({ error })))?.error
-        if (error) throw error
+        if (error) {
+          console.log(lightRed(`取得圖片 ${img.displayNameWithIndex} 的標頭失敗 💥`))
+          throw error
+        }
         verbose && console.log(`取得圖片 ${img.fileName} 的標頭成功 ✅🎇`)
 
         error = (await img.download(`${storage}`).catch((error) => ({ error })))?.error

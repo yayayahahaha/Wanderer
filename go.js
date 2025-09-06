@@ -1,6 +1,6 @@
 // TODO(flyc): 在關閉的時候輸出 or 匯出進度資訊
 
-import { lightBlue, lightRed, readSettings } from './utils.js'
+import { lightBlue, lightRed, lightYellow, readSettings, yellow } from './utils.js'
 import { Artwork } from './utils/instances.js'
 import pLimit from 'p-limit'
 
@@ -10,15 +10,36 @@ async function start() {
 
   const { idList: oriList = [] } = settings
 
-  const artworkLinkPattern = new RegExp('^https://www.pixiv.net/artworks/(\\d+)$')
+  const artworkLinkPathPattern = /^\/artworks\/(\d+)$/
   const artworkIdPattern = /^\d+$/
-  const idList = [...new Set(oriList)]
-    .map((artId) => {
-      if (artworkLinkPattern.test(artId)) artId = artId.match(artworkLinkPattern)[1]
-      else if (!artworkIdPattern.test(artId)) return null
-      return artId
-    })
-    .filter(Boolean)
+  const { idList, invalidList } = [...new Set(oriList)].reduce(
+    (acc, link) => {
+      if (artworkIdPattern.test(link)) {
+        acc.idList.push(link)
+        return acc
+      }
+
+      let pathname
+      try {
+        pathname = new URL(link).pathname
+      } catch {
+        acc.invalidList.push(link)
+        return acc
+      }
+      if (artworkLinkPathPattern.test(pathname)) {
+        acc.idList.push(pathname.match(artworkLinkPathPattern)[1])
+        return acc
+      }
+
+      acc.invalidList.push(link)
+      return acc
+    },
+    { idList: [], invalidList: [] }
+  )
+
+  if (invalidList.length !== 0) {
+    console.log(lightYellow('有一些 link 沒辦法取得 id:'), invalidList)
+  }
 
   const totalCount = idList.length
   let finishedCount = 0
