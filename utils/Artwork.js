@@ -1,8 +1,3 @@
-// TODO(flyc)
-// > 要寫個 script 剃除掉重複的圖片，有點太多了
-// > % 數的也可以
-// TODO(flyc) 對於 plimit 的行為還是不太確定，到底 promise.all 在收到 error 的時候會不會停止的這件事情怪怪的，一層好像會、雙層就會怪怪的
-
 import { fetchApi } from '../utils/request.js'
 import { generateFetchHeaders } from './header.js'
 import path from 'path'
@@ -29,11 +24,16 @@ export class Artwork {
   #fetchHeaders
   #artworkInfo = null
   #images = []
+  #done = false
 
   constructor(id, sessionId) {
     this.#id = id
     this.#fetchHeaders = generateFetchHeaders(sessionId, id)
     this.cachePossableMap = null
+  }
+
+  get done() {
+    return this.#done
   }
 
   get displayName() {
@@ -83,7 +83,7 @@ export class Artwork {
     }, {})
   }
 
-  fetchArtWorkInfo() {
+  async fetchArtWorkInfo() {
     return fetchApi(`https://www.pixiv.net/ajax/illust/${this.#id}?lang=zh_tw`, this.#fetchHeaders).then((res) => {
       const { body: { illustTitle, title, userId, userName, userAccount } = {} } = res
       return {
@@ -161,6 +161,11 @@ export class Artwork {
     if (downloadImagesError) throw downloadImagesError
 
     console.log(lightGreen(`💃 ${this.displayName} 下載成功`))
+    this.updateDone(true)
+  }
+
+  updateDone(value) {
+    this.#done = value
   }
 
   /**

@@ -1,8 +1,3 @@
-// TODO(flyc)
-// > 要寫個 script 剃除掉重複的圖片，有點太多了
-// > % 數的也可以
-// TODO(flyc) 對於 plimit 的行為還是不太確定，到底 promise.all 在收到 error 的時候會不會停止的這件事情怪怪的，一層好像會、雙層就會怪怪的
-
 import { generateFetchHeaders } from './header.js'
 import path from 'path'
 
@@ -40,6 +35,7 @@ export class Image {
       'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36',
     referer: 'https://www.pixiv.net/',
   }
+  #done = false
 
   constructor(link, artworkInfo, cachePossableMap) {
     this.originalLink = link
@@ -48,11 +44,19 @@ export class Image {
     this.newV = 0
   }
 
+  get done() {
+    return this.#done
+  }
+
   get displayName() {
     return `${this.artworkInfo.title} - ${this.artworkInfo.id}`
   }
   get displayNameWithIndex() {
     return `${this.displayName} - ${this.index}`
+  }
+
+  updateDone(value) {
+    this.#done = value
   }
 
   download(storage = null, retryLimit = 2) {
@@ -79,6 +83,7 @@ export class Image {
             this.newV = maxV + 1
           } else {
             console.log(lightMagenta(` 🧿 ${this.displayNameWithIndex} 有 cache ${this.headerHash} ! 不做下載 !`))
+            this.updateDone(true)
             return Promise.resolve()
           }
         }
@@ -149,6 +154,7 @@ export class Image {
           console.log(lightBlue(`  > ${this.displayNameWithIndex} 沒有一樣的檔案! 全部都保留!`))
         }
       })
+      .then(() => void this.updateDone(true))
   }
 
   async fetchHeaderInfo() {
