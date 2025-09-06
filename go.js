@@ -1,7 +1,7 @@
 // TODO(flyc): 在關閉的時候輸出 or 匯出進度資訊
 
-import { lightBlue, lightRed, lightYellow, readSettings, yellow } from './utils.js'
-import { Artwork } from './utils/instances.js'
+import { lightBlue, lightRed, lightYellow, readSettings } from './utils.js'
+import { Artwork } from './utils/Artwork.js'
 import pLimit from 'p-limit'
 
 async function start() {
