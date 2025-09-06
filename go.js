@@ -66,41 +66,61 @@ async function start() {
     })
   })
 
-  await Promise.all(promises)
-    .then(() => {
-      console.log(lightGreen('💖💖💖 成功囉 💖💖💖'))
+  return Promise.allSettled(promises)
+    .then((settledResult) => {
       genLog()
+      if (settledResult.every((reseult) => reseult.status === 'fulfilled')) {
+        console.log(lightGreen('💖💖💖 成功囉 💖💖💖'))
+        return
+      }
+
+      genLog(true)
+      if (settledResult.some((reseult) => reseult.status === 'fulfilled')) {
+        console.log(lightRed('🕷️🕷️🕷️ 沒有全部成功 🕷️🕷️🕷️'))
+      } else {
+        console.log(lightRed('🆘 🆘 🆘 全 部 失 敗 🆘 🆘 🆘'))
+      }
     })
     .catch((error) => {
-      console.log(lightRed('下載中斷了'), error)
+      console.log(lightRed('非預期的錯誤'), error)
+      genLog()
     })
 }
 start()
 
-function genLog() {
+function genLog(failedOnly = false) {
   fs.existsSync('logs') || fs.mkdirSync('logs')
   const timestamp = Date.now()
-  const artworksStatus = logList.map((artwork) => {
-    const { id, done, artworkInfo, images } = artwork
-    return {
-      done,
-      ...artworkInfo,
-      id,
-      images: images.map((img) => {
-        const { index, originalLink, done } = img
-        return { index, originalLink, done }
-      }),
-    }
-  })
+  const artworksStatus = logList
+    .map((artwork) => {
+      const { id, done, artworkInfo, images } = artwork
+      return {
+        done,
+        ...artworkInfo,
+        id,
+        images: images.map((img) => {
+          const { originalLink, done } = img
+          try {
+            return { index: img.index, originalLink, done }
+          } catch {
+            return { index: null, originalLink, done }
+          }
+        }),
+      }
+    })
+    .filter((item) => {
+      return failedOnly ? !item.done : true
+    })
 
-  const logPath = path.resolve('logs', `${timestamp}.json`)
+  const logPath = path.resolve('logs', `${timestamp}${failedOnly ? '-failed' : ''}.json`)
   const logContent = { timestamp, artworksStatus }
   fs.writeFileSync(logPath, JSON.stringify(logContent, null, 2))
-  console.log(green('log 檔案生成成功:'), logPath)
+  console.log(green(`${timestamp} log 檔案生成成功:`), logPath)
 }
 
 process.on('SIGINT', () => {
   console.log(red('👻 收到 Ctrl+C 信號，正在準備進度報告...'))
   genLog()
+  genLog(true)
   process.exit(0)
 })
