@@ -1,8 +1,7 @@
-// TODO(flyc) hash 機制有問題，有可能圖片一樣但 hash 不一樣，看還有沒有其他方法..
+// TODO(flyc)
 // > 要寫個 script 剃除掉重複的圖片，有點太多了
 // > % 數的也可以
 // TODO(flyc) 對於 plimit 的行為還是不太確定，到底 promise.all 在收到 error 的時候會不會停止的這件事情怪怪的，一層好像會、雙層就會怪怪的
-// 或是在計算到有同樣 index 但 hash 不同的時候，直接檢查 md5 或是 % 數之類的
 
 import { fetchApi } from '../utils/request.js'
 import { generateFetchHeaders } from './header.js'
@@ -11,7 +10,6 @@ import path from 'path'
 import fs from 'fs'
 import {
   colorFn,
-  doDownload,
   errorConsole,
   fetchDownload,
   getFileMD5,
@@ -379,38 +377,6 @@ export class Artwork {
     if (downloadImagesError) throw downloadImagesError
 
     console.log(lightGreen(`💃 ${this.displayName} 下載成功`))
-  }
-
-  async downloadAllImages() {
-    const { error: infoError, ...artworkInfo } = await this.fetchArtWorkInfo().catch((error) => ({ error }))
-    if (infoError) return void errorConsole(`取得 ${this.#id} 基本資訊失敗: `, infoError)
-
-    const { userId, title, userAccount } = artworkInfo
-
-    console.log(`正要開始下載 ${title} - ${this.#id}`)
-
-    const { error, linkList } = await this.fetchAllImagesUrl()
-      .then((linkList) => ({ linkList }))
-      .catch((error) => ({ error }))
-    if (error) return void errorConsole(error)
-
-    const downloadInfoList = linkList.map((link, index) => {
-      const fileName = `test-img/${userAccount}-${userId}/${this.#id}-${title}/${userAccount}-${userId}-${
-        this.#id
-      }-${title}-${index}.png`
-      const targetPath = path.resolve(process.cwd(), fileName)
-      const addHeader = ['referer:https://www.pixiv.net/', `Cookie:PHPSESSID=${this.#session}`]
-
-      return { link, fileName, targetPath, addHeader }
-    })
-
-    const { failedList } = await doDownload(downloadInfoList, { id: this.#id, title })
-    this.#failedList = [...this.#failedList, ...failedList]
-    if (this.#failedList.length !== 0) {
-      const failedLog = `test-img/${userAccount}-${userId}/failed-log-${Date.now()}.json`
-      fs.writeFileSync(failedLog, JSON.stringify(this.#failedList, null, 2))
-      console.log('下載與重新嘗試都結束了, 但仍有沒有下載成功的檔案，已寫進 log 裡')
-    }
   }
 
   /**

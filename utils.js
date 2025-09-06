@@ -2,8 +2,6 @@ import fs, { createWriteStream } from 'fs'
 import path from 'path'
 import { createHash } from 'crypto'
 import { createReadStream } from 'fs'
-import youtubeDl from 'youtube-dl-exec'
-import pLimit from 'p-limit'
 import { rename, unlink } from 'fs/promises'
 import { pipeline } from 'stream/promises'
 
@@ -80,16 +78,6 @@ function isDir(path) {
   return fs.lstatSync(path).isDirectory()
 }
 
-export async function compare2Files(f1, f2) {
-  try {
-    const [hash1, hash2] = await Promise.all([getFileMD5(f1), getFileMD5(f2)])
-    return hash1 === hash2
-  } catch (error) {
-    console.log(red('[compare2Files]發生錯誤: '), error)
-    throw error
-  }
-}
-
 export function getMd5(value) {
   return createHash('md5').update(value).digest('hex')
 }
@@ -118,43 +106,6 @@ export async function getFileMD5(filePath) {
       console.log(red(errorMessage))
       reject(err instanceof Error ? err : new Error(err))
     })
-  })
-}
-
-const delayTime = 100
-// TODO(flyc): 要檢查格式
-export async function doDownload(list, { id, title }, tryLimit = 2) {
-  const failedList = []
-  const limit = pLimit(4)
-  const promises = list.map((payload, index) => {
-    const { link, fileName, targetPath: o, addHeader } = payload
-
-    return limit(() =>
-      new Promise((resolve) => setTimeout(resolve, delayTime + Math.ceil(Math.random() * 100)))
-        .then(() => youtubeDl(link, { o, dumpJson: true, addHeader }))
-        .then(() => youtubeDl(link, { o, addHeader }))
-        .then(() => console.log(`${fileName} 下載完成`))
-        .catch((error) => {
-          console.log(red(`${id}-${index} 下載失敗`))
-          console.log(red(error))
-          failedList.push(payload)
-        })
-    )
-  })
-
-  return Promise.all(promises).then(() => {
-    if (failedList.length !== 0) {
-      if (tryLimit <= 0) {
-        console.log(red('仍有失敗的下載嘗試，但超過重試次數了', failedList))
-        return { failedList }
-      }
-
-      console.log(`有 ${failedList.length} 個失敗的項目，重新嘗試下載這些檔案`)
-      return doDownload(failedList, { id, title }, tryLimit - 1)
-    } else {
-      console.log(`${title} - ${id} 結束囉`)
-      return { failedList }
-    }
   })
 }
 
