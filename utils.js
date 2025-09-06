@@ -1,13 +1,27 @@
-import fs from 'fs'
+import fs, { createWriteStream } from 'fs'
 import path from 'path'
 import { createHash } from 'crypto'
 import { createReadStream } from 'fs'
 import youtubeDl from 'youtube-dl-exec'
 import pLimit from 'p-limit'
+import { rename, unlink } from 'fs/promises'
+import { pipeline } from 'stream/promises'
 
 const configFileName = 'setting.json'
 const configFilePath = path.resolve('.', configFileName)
 
+export function magenta(msg) {
+  return `\x1b[35m${msg}\x1b[0m`
+}
+export function yellow(msg) {
+  return `\x1b[33m${msg}\x1b[0m`
+}
+export function cyan(msg) {
+  return `\x1b[36m${msg}\x1b[0m`
+}
+export function green(msg) {
+  return `\x1b[32m${msg}\x1b[0m`
+}
 export function lightRed(msg) {
   return `\x1b[1m\x1b[31m${msg}\x1b[0m`
 }
@@ -146,4 +160,43 @@ export async function doDownload(list, { id, title }, tryLimit = 2) {
 
 export function removeSlash(str) {
   return str.replace(/\/+/g, '-').replace(/-+/g, '-')
+}
+
+export async function fetchDownload(url, outputPath, fetchConfig = {}, { verbose = false } = {}) {
+  const partFilename = `${outputPath}.part`
+  let partFileStream
+
+  try {
+    const response = await fetch(url, fetchConfig)
+    verbose && console.log(green('[fetchDownload] fetch 成功'))
+
+    if (!response.ok) {
+      const errorBody = await response.text().catch(() => '')
+      throw new Error(`Download failed: ${response.status} ${response.statusText}. ${errorBody}`)
+    }
+
+    const outputDir = path.dirname(outputPath)
+    fs.mkdirSync(outputDir, { recursive: true })
+
+    partFileStream = createWriteStream(partFilename)
+    await pipeline(response.body, partFileStream).catch((error) => {
+      console.log(lightRed(`[fetchDownload] pipeline 失敗!`), red(`${url} 在進行 pipeline 的階段時失敗了`))
+      throw error
+    })
+    verbose && console.log(green('[fetchDownload] pipeline 成功'))
+    await rename(partFilename, outputPath).catch((error) => {
+      console.log(lightRed(`[fetchDownload] rename 失敗!`), red(`${url} 在進行 rename 的階段時失敗了`))
+      throw error
+    })
+    verbose && console.log(green('[fetchDownload] rename 成功'))
+  } catch (error) {
+    // If the stream was created, it needs to be closed before unlinking
+    if (partFileStream) partFileStream.close()
+
+    // Attempt to clean up the partial file, ignore errors if it fails
+    await unlink(partFilename).catch(() => {})
+
+    // Re-throw the original error to inform the caller
+    throw error
+  }
 }

@@ -11,9 +11,9 @@ import path from 'path'
 import fs from 'fs'
 import {
   colorFn,
-  compare2Files,
   doDownload,
   errorConsole,
+  fetchDownload,
   getFileMD5,
   getMd5,
   lightBlue,
@@ -23,7 +23,6 @@ import {
   lightYellow,
   removeSlash,
 } from '../utils.js'
-import youtubeDl from 'youtube-dl-exec'
 import pLimit from 'p-limit'
 
 const storage = 'check-images'
@@ -42,6 +41,11 @@ class ImageHeader {
 
 export class Image {
   #md5Length = 10
+  #imageFetchNeededHeaders = {
+    'user-agent':
+      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36',
+    referer: 'https://www.pixiv.net/',
+  }
 
   constructor(link, artworkInfo, cachePossableMap) {
     this.originalLink = link
@@ -63,9 +67,6 @@ export class Image {
       errorConsole(errorMsg)
       throw new Error(errorMsg)
     }
-
-    // TODO(flyc): 這種 token 的都要看一下
-    const addHeader = ['referer:https://www.pixiv.net/', `Cookie:PHPSESSID=`]
 
     if (this.cachePossableMap != null) {
       const matchCacheInfo = this.cachePossableMap[this.index] ?? null
@@ -94,70 +95,66 @@ export class Image {
 
     const o = storage == null ? this.fileName : path.resolve(storage, this.fileName)
 
-    return (
-      this.fetchHeaderInfo()
-        // TODO(flyc): 這裡要檢查 cache
-        .then(async () => youtubeDl(this.originalLink, { o, addHeader }))
-        .then(() => {
-          if (!fs.existsSync(o)) {
-            if (retryLimit <= 0) {
-              throw new Error(`[${this.constructor.name}] download ${o} 下載失敗`)
-            }
-
-            console.log(`下載完，但檔案不存在，重新嘗試.. 剩餘次數: ${retryLimit - 1}`)
-            return this.download(storage, retryLimit - 1)
+    return fetchDownload(this.originalLink, o, { headers: this.#imageFetchNeededHeaders })
+      .then(() => {
+        if (!fs.existsSync(o)) {
+          if (retryLimit <= 0) {
+            throw new Error(`[${this.constructor.name}] download ${o} 下載失敗`)
           }
-        })
-        .then(async () => {
-          if (this.newV === 0) return
 
-          console.log(
-            lightMagenta(`  > ${this.displayNameWithIndex} 新版本 ${this.newV} 下載完畢，將開始比較新版與舊版的 md5`)
+          console.log(`下載完，但檔案不存在，重新嘗試.. 剩餘次數: ${retryLimit - 1}`)
+          return this.download(storage, retryLimit - 1)
+        }
+      })
+      .then(async () => {
+        if (this.newV === 0) return
+
+        console.log(
+          lightMagenta(`  > ${this.displayNameWithIndex} 新版本 ${this.newV} 下載完畢，將開始比較新版與舊版的 md5`)
+        )
+        const matchCacheInfo = this.cachePossableMap[this.index] ?? null
+
+        const cacheMd5Map = (
+          await Promise.all(
+            matchCacheInfo.hashList.map(async (hasInfo) => {
+              return {
+                md5: await getFileMD5(hasInfo.fileName),
+                hasInfo,
+              }
+            })
           )
-          const matchCacheInfo = this.cachePossableMap[this.index] ?? null
+        ).reduce((acc, md5Result) => {
+          acc[md5Result.md5] = md5Result.hasInfo
+          return acc
+        }, {})
 
-          const cacheMd5Map = (
-            await Promise.all(
-              matchCacheInfo.hashList.map(async (hasInfo) => {
-                return {
-                  md5: await getFileMD5(hasInfo.fileName),
-                  hasInfo,
-                }
-              })
+        const newFileName = path.join(storage, this.fileName)
+        const newFileMd5 = await getFileMD5(newFileName)
+
+        const matchedMd5FileInfo = cacheMd5Map[newFileMd5]
+
+        if (matchedMd5FileInfo != null) {
+          console.log(
+            lightYellow(
+              `  > ${this.displayNameWithIndex} 兩個檔案一樣! 用新的檔案替換舊的檔案的 version 但保留新檔案的 hash!`
             )
-          ).reduce((acc, md5Result) => {
-            acc[md5Result.md5] = md5Result.hasInfo
-            return acc
-          }, {})
+          )
 
-          const newFileName = path.join(storage, this.fileName)
-          const newFileMd5 = await getFileMD5(newFileName)
+          const oldFileName = matchedMd5FileInfo.fileName
+          const oldVersion = matchedMd5FileInfo.v
 
-          const matchedMd5FileInfo = cacheMd5Map[newFileMd5]
+          const finalNewFileName = path.join(
+            storage,
+            this.#genFileNameWithVersion(oldVersion, { hash: this.headerHash })
+          )
 
-          if (matchedMd5FileInfo != null) {
-            console.log(
-              lightYellow(
-                `  > ${this.displayNameWithIndex} 兩個檔案一樣! 用新的檔案替換舊的檔案的 version 但保留新檔案的 hash!`
-              )
-            )
-
-            const oldFileName = matchedMd5FileInfo.fileName
-            const oldVersion = matchedMd5FileInfo.v
-
-            const finalNewFileName = path.join(
-              storage,
-              this.#genFileNameWithVersion(oldVersion, { hash: this.headerHash })
-            )
-
-            fs.rmSync(oldFileName)
-            fs.renameSync(newFileName, finalNewFileName)
-            console.log(lightYellow(`  > ${this.displayNameWithIndex} 操作成功`))
-          } else {
-            console.log(lightBlue(`  > ${this.displayNameWithIndex} 沒有一樣的檔案! 全部都保留!`))
-          }
-        })
-    )
+          fs.rmSync(oldFileName)
+          fs.renameSync(newFileName, finalNewFileName)
+          console.log(lightYellow(`  > ${this.displayNameWithIndex} 操作成功`))
+        } else {
+          console.log(lightBlue(`  > ${this.displayNameWithIndex} 沒有一樣的檔案! 全部都保留!`))
+        }
+      })
   }
 
   async fetchHeaderInfo() {
