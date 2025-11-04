@@ -12,7 +12,7 @@
   "dependencies": {
     "node-fetch": "^2.6.1",
     "MasterHouse": "/Users/flyc/flyc/wonder/MasterHouse",
-    "npm-flyc": "/Users/flyc/flyc/wonder/npm-flyc",
+    "npm-flyc": "1.0.21",
     "prettier": "^2.7.1",
     "qs": "^6.10.1"
   }
