@@ -11,10 +11,10 @@
     "dev": "node index.mjs"
   },
   "dependencies": {
-    "axios": "^1.8.4",
+    "axios": "^1.13.1",
     "jsdom": "^26.0.0",
     "node-fetch": "^3.3.2",
-    "npm-flyc": "^1.0.19",
+    "npm-flyc": "^1.0.21",
     "p-limit": "^7.1.1",
     "qs": "^6.10.1",
     "undici": "^7.5.0",
