@@ -6,11 +6,14 @@
   "author": "flyc",
   "license": "MIT",
   "scripts": {
-    "dev": "node --experimental-modules index.mjs"
+    "dev": "node --experimental-modules index.mjs",
+    "// dev": "node index.mjs"
   },
   "dependencies": {
-    "axios": "^0.18.1",
-    "npm-flyc": "^1.0.10"
-  },
-  "devDependencies": {}
+    "node-fetch": "^2.6.1",
+    "MasterHouse": "/Users/flyc/flyc/wonder/MasterHouse",
+    "npm-flyc": "1.0.21",
+    "prettier": "^2.7.1",
+    "qs": "^6.10.1"
+  }
 }

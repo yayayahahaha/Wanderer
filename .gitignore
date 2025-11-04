@@ -9,3 +9,4 @@ cacheDirectory.json
 result.json
 input.json
 .DS_Store
+.pnpm-debug.log
