@@ -1,22 +1,16 @@
-const fetch = require('node-fetch')
-const qs = require('qs')
+import fetch from 'node-fetch'
 
-const request = async (config) => {
-  const { url, method = 'get', params = {}, data = null, headers = {} } = config
-  const queryString = `?${qs.stringify(params)}`
-  const path = `${url}${queryString}`
+export async function fetchApi(path = '', config = {}) {
+  return fetch(encodeURI(path), config)
+    .then((res) => {
+      const clone = res.clone()
+      const text = res.text()
+      const json = clone.json().catch((error) => ({ error }))
 
-  const [response, error] = await fetch(encodeURI(path), { headers })
-    .then(async (r) => {
-      return r.ok ? [await r.text(), null] : Promise.reject(r)
+      return Promise.all([res.ok, text, json])
     })
-    .catch(async (e) => (typeof e.text === 'function' ? [null, await e.text()] : [null, e]))
-
-  try {
-    return [JSON.parse(response), JSON.parse(error)]
-  } catch (e) {
-    return [response, error]
-  }
+    .then(([ok, text, json]) => {
+      if (ok && !json.error) return json
+      throw text
+    })
 }
-
-module.exports = { request }
