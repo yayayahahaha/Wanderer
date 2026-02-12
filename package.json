@@ -17,7 +17,7 @@
     "npm-flyc": "^1.0.21",
     "p-limit": "^7.1.1",
     "qs": "^6.10.1",
-    "undici": "^7.5.0",
+    "undici": "^7.18.2",
     "youtube-dl-exec": "^3.0.10"
   },
   "devDependencies": {
