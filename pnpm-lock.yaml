@@ -27,8 +27,8 @@ importers:
         specifier: ^6.14.2
         version: 6.14.2
       undici:
-        specifier: ^7.18.2
-        version: 7.18.2
+        specifier: ^7.24.0
+        version: 7.24.0
       youtube-dl-exec:
         specifier: ^3.0.10
         version: 3.0.25
@@ -792,8 +792,8 @@ packages:
     resolution: {integrity: sha512-XleUoc9uwGXqjWwXaUTZAmzMcFZ5858QA2vvx1Ur5xIcixXIP+8LnFDgRplU30us6teqdlskFfu+ae4K79Ooew==}
     engines: {node: '>= 0.8.0'}
 
-  undici@7.18.2:
-    resolution: {integrity: sha512-y+8YjDFzWdQlSE9N5nzKMT3g4a5UBX1HKowfdXh0uvAnTaqqwqB92Jt4UXBAeKekDs5IaDKyJFR4X1gYVCgXcw==}
+  undici@7.24.0:
+    resolution: {integrity: sha512-jxytwMHhsbdpBXxLAcuu0fzlQeXCNnWdDyRHpvWsUl8vd98UwYdl9YTyn8/HcpcJPC3pwUveefsa3zTxyD/ERg==}
     engines: {node: '>=20.18.1'}
 
   uri-js@4.4.1:
@@ -1605,7 +1605,7 @@ snapshots:
     dependencies:
       prelude-ls: 1.2.1
 
-  undici@7.18.2: {}
+  undici@7.24.0: {}
 
   uri-js@4.4.1:
     dependencies:
