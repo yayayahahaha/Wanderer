@@ -69,6 +69,15 @@ async function start() {
   return Promise.allSettled(promises)
     .then((settledResult) => {
       genLog()
+      
+      const failures = settledResult.filter(r => r.status === 'rejected')
+      if (failures.length > 0) {
+        console.log(lightRed('❌ 發現失敗的任務:'))
+        failures.forEach((f, i) => {
+          console.log(red(`  [任務 ${i+1}] 原因:`), f.reason)
+        })
+      }
+
       if (settledResult.every((reseult) => reseult.status === 'fulfilled')) {
         console.log(lightGreen('💖💖💖 成功囉 💖💖💖'))
         return

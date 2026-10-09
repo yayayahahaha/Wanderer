@@ -6,6 +6,7 @@ import fs from 'fs'
 import { colorFn, errorConsole, lightGreen, lightMagenta, lightRed, removeSlash } from '../utils.js'
 import pLimit from 'p-limit'
 import { Image } from './Image.js'
+import { Ugoira } from './Ugoira.js'
 
 const storage = 'check-images'
 
@@ -16,6 +17,7 @@ class ArtworkInfo {
     this.userId = payload?.userId ?? null
     this.userName = payload?.userName ?? null
     this.userAccount = payload?.userAccount ?? null
+    this.illustType = payload?.illustType ?? null
   }
 }
 
@@ -24,6 +26,7 @@ export class Artwork {
   #fetchHeaders
   #artworkInfo = null
   #images = []
+  #ugoira = null
   #done = false
 
   constructor(id, sessionId) {
@@ -38,6 +41,10 @@ export class Artwork {
 
   get displayName() {
     return `${this.artworkInfo?.title} - ${this.id}`
+  }
+
+  get isUgoira() {
+    return this.artworkInfo?.illustType === 2
   }
 
   genCachePossableMap() {
@@ -59,7 +66,7 @@ export class Artwork {
       if (/\.part$/.test(name)) return acc
       if (name === '.DS_Store') return acc
 
-      const hashReg = /-(\d+)-v(\d+)-(\w{10})\.\w+$/
+      const hashReg = /-(ugoira|\d+)-v(\d+)-(\w{10})\.\w+$/
       const [, index, v, hash] = name.match(hashReg) ?? []
       if (index == null) console.log(name)
 
@@ -85,12 +92,13 @@ export class Artwork {
 
   async fetchArtWorkInfo() {
     return fetchApi(`https://www.pixiv.net/ajax/illust/${this.#id}?lang=zh_tw`, this.#fetchHeaders).then((res) => {
-      const { body: { illustTitle, title, userId, userName, userAccount } = {} } = res
+      const { body: { illustTitle, title, userId, userName, userAccount, illustType } = {} } = res
       return {
         title: illustTitle || title,
         userId,
         userName,
         userAccount,
+        illustType,
       }
     })
   }
@@ -118,6 +126,18 @@ export class Artwork {
     this.#images = res.list.map((imageLink) => new Image(imageLink, this.artworkInfo, this.cachePossableMap))
   }
 
+  async genUgoira() {
+    const url = `https://www.pixiv.net/ajax/illust/${this.#id}/ugoira_meta?lang=zh_tw`
+    const { error, ...res } = await fetchApi(url, this.#fetchHeaders).catch((error) => ({ error }))
+    if (error) {
+      errorConsole(`[${this.constructor.name}]genUgoira 失敗!`, this.id, error)
+      throw error
+    }
+
+    const { originalSrc } = res.body
+    this.#ugoira = new Ugoira(originalSrc, res.body, this.artworkInfo, this.cachePossableMap)
+  }
+
   async downloadFlow({ verbose = false, seq = 0 } = {}) {
     const artworkInfoError = (await this.genArtworkInfo().catch((error) => ({ error })))?.error
     if (artworkInfoError != null) throw artworkInfoError
@@ -125,6 +145,18 @@ export class Artwork {
 
     // 嘗試處理 cache folder
     this.genCachePossableMap()
+
+    if (this.isUgoira) {
+      const ugoiraMetaError = (await this.genUgoira().catch((error) => ({ error })))?.error
+      if (ugoiraMetaError != null) throw ugoiraMetaError
+
+      await this.#ugoira.genHeaderInfo()
+      await this.#ugoira.download({ verbose })
+
+      console.log(lightGreen(`💃 ${this.displayName} (動圖) 下載成功`))
+      this.updateDone(true)
+      return
+    }
 
     const imagesError = (await this.genImages().catch((error) => ({ error })))?.error
     if (imagesError != null) throw imagesError

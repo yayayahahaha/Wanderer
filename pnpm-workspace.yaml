@@ -1,0 +1,5 @@
+allowBuilds:
+  ffmpeg-static: set this to true or false
+  youtube-dl-exec: set this to true or false
+onlyBuiltDependencies:
+  - ffmpeg-static

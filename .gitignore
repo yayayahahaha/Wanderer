@@ -5,6 +5,9 @@ test-img/
 **.png
 **.jpeg
 **.gif
+check-images/**/*.json
+check-images/**/*.zip
+check-images/**/*.mp4
 node_modules/
 caches/
 logs/
